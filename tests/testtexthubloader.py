@@ -1,0 +1,1 @@
+from texthub.modules import VGG_FeatureExtractor
