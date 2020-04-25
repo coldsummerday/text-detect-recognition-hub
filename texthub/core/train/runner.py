@@ -5,9 +5,10 @@ import os
 import torch
 import sys
 import time
-from .utils.checkpoint import load_checkpoint, save_checkpoint
-from .Hook import BaseHook,get_priority
-
+from ..utils.checkpoint import load_checkpoint, save_checkpoint
+from .logbuffer import LogBuffer
+from .Hooks import (lrupdatehook,BaseHook,get_priority,OptimizerHook,CheckpointHook,IterTimerHook)
+from .Hooks.lrupdatehook import LrUpdaterHook
 class Runner(object):
     """
     A trainning helper for pytorch
@@ -58,6 +59,7 @@ class Runner(object):
             self.logger = self.init_logger(work_dir, log_level)
         else:
             self.logger = logger
+        self.log_buffer = LogBuffer()
 
 
         self.mode = None
@@ -328,7 +330,6 @@ class Runner(object):
         return logger
 
 
-    ##TODO:register_training_hooks
 
 
     ##属性
@@ -366,6 +367,52 @@ class Runner(object):
     def max_iters(self):
         """int: Maximum training iterations."""
         return self._max_iters
+
+
+    """
+    注册钩子
+    """
+
+    def register_training_hooks(self,
+                                lr_config,
+                                optimizer_config=None,
+                                checkpoint_config=None,
+                                log_config=None):
+        """Register default hooks for training.
+
+        Default hooks include:
+
+        - LrUpdaterHook
+        - OptimizerStepperHook
+        - CheckpointSaverHook
+        - IterTimerHook
+        - LoggerHook(s)
+        """
+        if optimizer_config is None:
+            optimizer_config = {}
+        if checkpoint_config is None:
+            checkpoint_config = {}
+        self.register_lr_hooks(lr_config)
+        self.register_hook(self.build_hook(optimizer_config, OptimizerHook))
+        self.register_hook(self.build_hook(checkpoint_config, CheckpointHook))
+        self.register_hook(IterTimerHook())
+        if log_config is not None:
+            self.register_logger_hooks(log_config)
+
+    def register_lr_hooks(self, lr_config):
+        if isinstance(lr_config, LrUpdaterHook):
+            self.register_hook(lr_config)
+        elif isinstance(lr_config, dict):
+            assert 'policy' in lr_config
+            # 在代码中找到这个类
+            hook_name = lr_config['policy'].title() + 'LrUpdaterHook'
+            if not hasattr(lrupdatehook, hook_name):
+                raise ValueError('"{}" does not exist'.format(hook_name))
+            hook_cls = getattr(lrupdatehook, hook_name)
+            self.register_hook(hook_cls(**lr_config))
+        else:
+            raise TypeError('"lr_config" must be either a LrUpdaterHook object'
+                            ' or dict, not {}'.format(type(lr_config)))
 
 
 

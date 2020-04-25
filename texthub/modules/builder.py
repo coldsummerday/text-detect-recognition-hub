@@ -3,8 +3,7 @@ from ..datasets.charsets import CharsetDict
 from texthub.utils import build_from_cfg
 from .registry import (BACKBONES, IMGTRANSFORMATIONS,
                        SEQUENCERECOGNITIONS,
-                       RECOGNITIONPREDICTIONS,
-                       LABELCONVERTERS,RECOGNIZERS,NECKS,
+                       RECOGNIZERS,NECKS,HEADS,
                        ROI_EXTRACTORS, SHARED_HEADS)
 
 
@@ -24,15 +23,20 @@ def build_img_trans(cfg):
 def build_sequence(cfg):
     return build(cfg,SEQUENCERECOGNITIONS)
 
-def build_prediction(cfg):
-    return build(cfg,RECOGNITIONPREDICTIONS)
-
-def build_converter(cfg):
+def build_head(cfg):
+    ##TODO:build charsets
+    """
+        替换charsets
+   """
     if "charsets" in cfg.keys():
         charset_type_str = cfg.pop('charsets')
         charset = CharsetDict.get(charset_type_str)
         cfg.setdefault("charsets", charset)
-    return build(cfg,LABELCONVERTERS)
+    return build(cfg,HEADS)
+
+def build_recognizer(cfg, train_cfg=None, test_cfg=None):
+    return build(cfg, RECOGNIZERS, dict(train_cfg=train_cfg, test_cfg=test_cfg))
+
 
 def build_backbone(cfg):
     return build(cfg, BACKBONES)

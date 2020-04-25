@@ -177,7 +177,7 @@ class GridGenerator(nn.Module):
 
     def build_P_prime(self, batch_C_prime):
         """ Generate Grid from batch_C_prime [batch_size x F x 2] """
-        device = batch_C_prime.device()
+        device = batch_C_prime.device
         batch_size = batch_C_prime.size(0)
         batch_inv_delta_C = self.inv_delta_C.repeat(batch_size, 1, 1)
         batch_P_hat = self.P_hat.repeat(batch_size, 1, 1)

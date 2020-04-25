@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from mmcv.cnn import kaiming_init
+from ..utils.moduleinit import kaiming_init
 
 
 class GeneralizedAttention(nn.Module):

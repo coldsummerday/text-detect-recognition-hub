@@ -1,7 +1,9 @@
 import torch.nn as nn
 from .base import  BaseRecognizer
-from ..builder import build_backbone,build_img_trans,build_converter,build_prediction,build_sequence
+from ..registry import RECOGNIZERS
+from ..builder import build_backbone,build_img_trans,build_sequence,build_head
 
+@RECOGNIZERS.register_module
 class FourStageModel(BaseRecognizer):
     """
     four stage recognition model with:trans->feature_extraction->sequence_modeling->prediction
@@ -14,6 +16,7 @@ class FourStageModel(BaseRecognizer):
             backbone,
             sequence=None,
             transformation = None,
+            label_head = None,
             train_cfg = None,
             test_cfg = None,
             pretrained = None):
@@ -23,6 +26,7 @@ class FourStageModel(BaseRecognizer):
         self.img_transformation = None
         if transformation !=None:
             self.img_transformation = build_img_trans(transformation)
+        self.label_head = build_head(label_head)
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
         self.AdaptiveAvgPool = nn.AdaptiveAvgPool2d((None, 1))  # Transform final (imgH/16-1) -> 1
@@ -34,6 +38,7 @@ class FourStageModel(BaseRecognizer):
             self.img_transformation.init_weights()
         self.backbone.init_weights(pretrained)
         self.sequenceModeling.init_weights()
+
 
     def extract_feat(self, x):
         """Directly extract features from the img backbone
@@ -48,6 +53,36 @@ class FourStageModel(BaseRecognizer):
         visual_feature = visual_feature.squeeze(3)
         contextual_feature = self.sequenceModeling(visual_feature)
         return contextual_feature
+
+    def forward_train(self,
+                      img,
+                      extra_data,
+                      **kwargs):
+        x = self.extract_feat(img)
+        outs = self.label_head(x,extra_data,return_loss=True)
+        loss_inputs = outs
+        losses = self.label_head.loss(*loss_inputs)
+        ##在runner中loss 回传
+        return losses
+
+    def forward_test(self,img_tensor,extra_data,**kwargs):
+        x = self.extract_feat(img_tensor)
+        outs = self.label_head.forward_test(x,extra_data=None)
+        return outs
+
+
+
+
+    def forward(self, img_tensor, extra_data, return_loss=True, **kwargs):
+        """
+        in the text recognition ,the extra_data is the label
+        """
+        if return_loss:
+            return self.forward_train(img_tensor, extra_data, **kwargs)
+        else:
+            return self.forward_test(img_tensor, extra_data, **kwargs)
+
+
 
 
 

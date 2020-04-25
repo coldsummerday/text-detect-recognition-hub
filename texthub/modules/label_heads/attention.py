@@ -8,12 +8,72 @@ from .labelconverter import AttnLabelConverter
 class AttentionHead(nn.Module):
     def __init__(self, input_size, hidden_size,charsets):
         super(AttentionHead, self).__init__()
-        self.labelconverter = AttnLabelConverter(charsets)
+        self.converter = AttnLabelConverter(charsets)
         num_classes = len(charsets)
         self.attention_cell = AttentionCell(input_size, hidden_size, num_classes)
         self.hidden_size = hidden_size
         self.num_classes = num_classes
         self.generator = nn.Linear(hidden_size, num_classes)
+        self.loss_func = torch.nn.CrossEntropyLoss(ignore_index=0) # ignore [GO] token = ignore index 0
+
+    def forward(self,img_tensor,extra_data,return_loss,batch_max_length=25,**kwargs):
+        if return_loss:
+            return self.forward_train(img_tensor,extra_data)
+        else:
+            return self.forward_test(img_tensor,extra_data)
+
+
+    def loss(self,probs,target):
+        loss_recog = self.loss_func(probs.view(-1, probs.shape[-1]), target.contiguous().view(-1))
+        return dict(loss_recog=loss_recog)
+
+    def forward_train(self,img_tensor,extra_data,batch_max_length=25,**kwargs):
+        device = img_tensor.device
+        labels = extra_data
+        text, length = self.converter.encode(labels, device=device,batch_max_length=batch_max_length)
+        target = text[:,1:] # without [GO] Symbol
+        text = text[:,:-1]# align with Attention.forward
+
+        batch_size = img_tensor.size(0)
+        num_steps = batch_max_length + 1  # +1 for [s] at end of sentence.
+
+        output_hiddens = torch.FloatTensor(batch_size, num_steps, self.hidden_size).fill_(0).to(device)
+        hidden = (torch.FloatTensor(batch_size, self.hidden_size).fill_(0).to(device),
+                  torch.FloatTensor(batch_size, self.hidden_size).fill_(0).to(device))
+
+
+        for i in range(num_steps):
+            # one-hot vectors for a i-th char. in a batch
+            char_onehots = self._char_to_onehot(text[:, i], device=device,onehot_dim=self.num_classes)
+            # hidden : decoder's hidden s_{t-1}, batch_H : encoder's hidden H, char_onehots : one-hot(y_{t-1})
+            hidden, alpha = self.attention_cell(hidden, img_tensor.contiguous(), char_onehots)
+            output_hiddens[:, i, :] = hidden[0]  # LSTM hidden index (0: hidden, 1: Cell)
+        probs = self.generator(output_hiddens)
+        return probs,target
+
+    def forward_test(self,img_tensor,extra_data,batch_max_length=25,**kwargs):
+        batch_size = img_tensor.size(0)
+        device = img_tensor.device
+        num_steps = batch_max_length + 1  # +1 for [s] at end of sentence.
+
+        hidden = (torch.FloatTensor(batch_size, self.hidden_size).fill_(0).to(device),
+                  torch.FloatTensor(batch_size, self.hidden_size).fill_(0).to(device))
+        targets = torch.LongTensor(batch_size).fill_(0).to(device)  # [GO] token
+        probs = torch.FloatTensor(batch_size, num_steps, self.num_classes).fill_(0).to(device)
+
+        for i in range(num_steps):
+            char_onehots = self._char_to_onehot(targets, device, onehot_dim=self.num_classes, device=device)
+            hidden, alpha = self.attention_cell(hidden, img_tensor.contiguous(), char_onehots)
+            probs_step = self.generator(hidden[0])
+            probs[:, i, :] = probs_step
+            _, next_input = probs_step.max(1)
+            targets = next_input
+
+        preds = probs[:, :batch_max_length, :]
+        # select max probabilty (greedy decoding) then decode index to character
+        _, preds_index = preds.max(2)
+        preds_str = self.converter.decode(preds_index, [batch_max_length]*batch_size)
+        return preds_str
 
     def _char_to_onehot(self, input_char,device, onehot_dim=38):
         input_char = input_char.unsqueeze(1)
@@ -22,7 +82,10 @@ class AttentionHead(nn.Module):
         one_hot = one_hot.scatter_(1, input_char, 1)
         return one_hot
 
-    def forward(self, batch_H, labels, is_train=True, batch_max_length=25):
+
+
+
+    def ori_forward(self, batch_H, labels, is_train=True, batch_max_length=25):
         """
         input:
             batch_H : contextual_feature H = hidden state of encoder. [batch_size x num_steps x num_classes]

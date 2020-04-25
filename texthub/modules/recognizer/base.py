@@ -23,9 +23,6 @@ class BaseRecognizer(nn.Module,metaclass=ABCMeta):
     def forward_test(self,data):
         pass
 
-    @abstractmethod
-    def simple_test(self, img, img_meta, **kwargs):
-        pass
 
     @abstractmethod
     def init_weights(self, pretrained=None):

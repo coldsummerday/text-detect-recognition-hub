@@ -1,4 +1,35 @@
 # dataset settings
+
+model = dict(
+    type="FourStageModel",
+    pretrained=None,
+    transformation = dict(
+        type="TPSSpatialTransformerNetwork",
+        F=20,#'number of fiducial points of TPS-STN'
+        I_size=(32, 100),
+        I_r_size=(32, 100),
+        I_channel_num=1
+    ),
+    backbone=dict(
+        type="CRNNVGG",
+        input_channel=1,
+        output_channel=512
+    ),
+    sequence = dict(
+        type="DoubleBidirectionalLSTM",
+        input_size=512,
+        hidden_size=256,
+    ),
+    label_head =dict(
+        type="AttentionHead",
+        input_size=256,
+        hidden_size=256,
+        charsets="ChineseCharset"
+    )
+
+)
+train_cfg = dict()
+test_cfg = dict()
 dataset_type = 'LmdbDataset'
 data_root = '/Users/zhouhaibin/data/for_valid/test_lmdb_benchmark/'
 train_pipeline = [

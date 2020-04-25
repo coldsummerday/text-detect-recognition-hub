@@ -3,6 +3,25 @@ from ..registry import SEQUENCERECOGNITIONS
 from ..utils.moduleinit import normal_init
 
 @SEQUENCERECOGNITIONS.register_module
+class DoubleBidirectionalLSTM(nn.Module):
+    def __init__(self,input_size,hidden_size):
+        super(DoubleBidirectionalLSTM,self).__init__()
+        self.SequenceModeling = nn.Sequential(
+            BidirectionalLSTM(input_size, hidden_size, hidden_size),
+            BidirectionalLSTM(hidden_size, hidden_size, hidden_size))
+
+    def init_weights(self, pretrained=None):
+        for i in self.SequenceModeling:
+            i.init_weights(pretrained)
+    def forward(self, input):
+        return self.SequenceModeling(input)
+
+
+
+
+
+
+@SEQUENCERECOGNITIONS.register_module
 class BidirectionalLSTM(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super(BidirectionalLSTM, self).__init__()

@@ -97,9 +97,6 @@ def _load_checkpoint(filename, map_location=None):
         model_urls = get_torchvision_models()
         model_name = filename[14:]
         checkpoint = load_url_dist(model_urls[model_name])
-    elif filename.startswith('open-mmlab://'):
-        model_name = filename[13:]
-        checkpoint = load_url_dist(open_mmlab_model_urls[model_name])
     elif filename.startswith(('http://', 'https://')):
         checkpoint = load_url_dist(filename)
     else:

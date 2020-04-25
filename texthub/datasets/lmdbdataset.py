@@ -3,7 +3,7 @@ import sys
 import re
 import six
 import lmdb
-
+import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
 from texthub.utils import print_log
@@ -21,11 +21,13 @@ class LmdbDataset(Dataset):
         self.default_h = default_h
         self.default_w = default_w
         self.env = lmdb.open(root, max_readers=32, readonly=True, lock=False, readahead=False, meminit=False)
+        # set group flag for the sampler
+
+
         if not self.env:
             print_log('cannot create lmdb from %s' % (root),logger="root")
             sys.exit(0)
         self.pipeline = Compose(pipeline)
-
         with self.env.begin(write=False) as txn:
             nSamples = int(txn.get('num-samples'.encode()))
             self.nSamples = nSamples
@@ -63,6 +65,18 @@ class LmdbDataset(Dataset):
                     self.filtered_index_list.append(index)
 
                 self.nSamples = len(self.filtered_index_list)
+        self._set_group_flag()
+    def _set_group_flag(self):
+        """Set flag according to image aspect ratio.
+
+        Images with aspect ratio greater than 1 will be set as group 1,
+        otherwise group 0.
+        """
+        self.flag = np.zeros(len(self), dtype=np.uint8)
+        for i in range(len(self)):
+            # img_info = self.img_infos[i]
+            # if img_info['width'] / img_info['height'] > 1:
+            self.flag[i] = 1
 
     def __len__(self):
         return self.nSamples
