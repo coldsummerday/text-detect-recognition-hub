@@ -9,6 +9,7 @@ from ..utils.checkpoint import load_checkpoint, save_checkpoint
 from .logbuffer import LogBuffer
 from .Hooks import (lrupdatehook,BaseHook,get_priority,OptimizerHook,CheckpointHook,IterTimerHook)
 from .Hooks.lrupdatehook import LrUpdaterHook
+from . import Hooks
 class Runner(object):
     """
     A trainning helper for pytorch
@@ -20,7 +21,8 @@ class Runner(object):
                  optimizer=None,
                  work_dir=None,
                  log_level=logging.INFO,
-                 logger=None):
+                 logger=None,
+                 meta=None):
         """
 
         :param model:
@@ -60,6 +62,12 @@ class Runner(object):
         else:
             self.logger = logger
         self.log_buffer = LogBuffer()
+
+        if meta is not None:
+            assert isinstance(meta, dict), '"meta" must be a dict or None'
+            self.meta = meta
+        else:
+            self.meta = None
 
 
         self.mode = None
@@ -203,7 +211,7 @@ class Runner(object):
         # insert the hook to a sorted list
         inserted = False
         for i in range(len(self._hooks) - 1, -1, -1):
-            if priority >= self._hooks[i].priority:
+            if priority_int >= self._hooks[i].priority:
                 self._hooks.insert(i + 1, hook)
                 inserted = True
                 break
@@ -328,6 +336,12 @@ class Runner(object):
         file_handler.setLevel(level)
         logger.addHandler(file_handler)
         return logger
+    def register_logger_hooks(self, log_config):
+        log_interval = log_config['interval']
+        for info in log_config['hooks']:
+            logger_hook = obj_from_dict(
+                info, Hooks, default_args=dict(interval=log_interval))
+            self.register_hook(logger_hook, priority='VERY_LOW')
 
 
 

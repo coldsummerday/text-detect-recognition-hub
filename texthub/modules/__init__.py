@@ -10,6 +10,7 @@ from .backbones import *
 from .imgtransformation import *
 from .label_heads import *
 from .sequencerecognition import *
+
 __all__ = [
     'BACKBONES', 'NECKS' , 'HEADS',
     "RECOGNIZERS", 'build_backbone', 'build_neck', 'build_roi_extractor',

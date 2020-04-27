@@ -62,7 +62,7 @@ class AttentionHead(nn.Module):
         probs = torch.FloatTensor(batch_size, num_steps, self.num_classes).fill_(0).to(device)
 
         for i in range(num_steps):
-            char_onehots = self._char_to_onehot(targets, device, onehot_dim=self.num_classes, device=device)
+            char_onehots = self._char_to_onehot(targets, device, onehot_dim=self.num_classes)
             hidden, alpha = self.attention_cell(hidden, img_tensor.contiguous(), char_onehots)
             probs_step = self.generator(hidden[0])
             probs[:, i, :] = probs_step

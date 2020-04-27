@@ -8,15 +8,17 @@ from texthub.datasets import build_dataset
 
 config_file = "./configs/testdatasetconfig.py"
 cfg = Config.fromfile(config_file)
-dataset = build_dataset(cfg.data.train)
+train_dataset = build_dataset(cfg.data.train)
 
 model = build_recognizer(cfg.model)
 
-_data_loader = torch.utils.data.DataLoader(
-                dataset, batch_size=4,
+train_data_loader = torch.utils.data.DataLoader(
+                train_dataset, batch_size=cfg.data.imgs_per_gpu,
                 shuffle=True,
-                num_workers=4,
-                 pin_memory=True)
+                num_workers=cfg.data.workers_per_gpu,
+                pin_memory=True)
+
+
 data = _data_loader.__iter__().__next__()
 img = data['img']
 labels = data['label']

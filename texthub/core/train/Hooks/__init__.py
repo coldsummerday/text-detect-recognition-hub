@@ -9,7 +9,7 @@ from .lrupdatehook import LrUpdaterHook
 from .loghook import LoggerHook
 from .textloghook import TextLoggerHook
 from .optimizer import OptimizerHook
-
+from .evalhooks import RecoEvalHook
 __all__ = [
     'BaseHook', 'CheckpointHook', 'LrUpdaterHook', 'OptimizerHook',
     'IterTimerHook', 'LoggerHook',
