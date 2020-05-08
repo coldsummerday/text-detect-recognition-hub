@@ -47,7 +47,8 @@ class TextLoggerHook(LoggerHook):
                 log_str += 'eta: {}, '.format(eta_str)
                 log_str += ('time: {:.3f}, data_time: {:.3f}, '.format(
                     log_dict['time'], log_dict['data_time']))
-                log_str += 'memory: {}, '.format(log_dict['memory'])
+                if torch.cuda.is_available():
+                    log_str += 'memory: {}, '.format(log_dict['memory'])
         else:
             log_str = 'Epoch({}) [{}][{}]\t'.format(log_dict['mode'],
                                                     log_dict['epoch'] - 1,
@@ -75,7 +76,7 @@ class TextLoggerHook(LoggerHook):
         # only append log at last line
 
         with open(self.json_log_path, 'a+') as f:
-            json.dump(json_log, f, file_format='json')
+            json.dump(json_log, f,indent=4)
             f.write('\n')
 
     def _round_float(self, items):
@@ -102,9 +103,11 @@ class TextLoggerHook(LoggerHook):
             if torch.cuda.is_available():
                 log_dict['memory'] = self._get_max_memory(runner)
         for name, val in runner.log_buffer.output.items():
+            ##将head中的loss 记录下来
             if name in ['time', 'data_time']:
                 continue
             log_dict[name] = val
+
 
         self._log_info(log_dict, runner)
         self._dump_log(log_dict, runner)

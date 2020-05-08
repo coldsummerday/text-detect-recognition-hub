@@ -3,7 +3,7 @@ import random
 from functools import partial
 
 import numpy as np
-from mmcv.parallel import collate
+#from mmcv.parallel import collate
 from ...utils import get_dist_info
 from torch.utils.data import DataLoader
 

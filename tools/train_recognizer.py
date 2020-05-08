@@ -4,17 +4,17 @@ import copy
 import os
 import os.path as osp
 import time
-
+import sys
+this_path = os.path.split(os.path.realpath(__file__))[0]
+sys.path.append(osp.join(this_path,'../'))
 
 import torch
 from texthub.utils import Config
-#from mmcv.runner import init_dist
 from texthub.apis import train_recoginizer
 from texthub.datasets import  build_dataset
 from texthub.modules import build_recognizer
 from texthub.utils import get_root_logger
 
-from mmdet.utils import collect_env, get_root_logger
 
 
 def parse_args():
@@ -43,8 +43,9 @@ def main():
     # update configs according to CLI args
     if args.work_dir is not None:
         cfg.work_dir = args.work_dir
-    if args.resume_from is not None:
-        cfg.resume_from = args.resume_from
+    if args.resume is not None:
+        cfg.resume_from = args.resume
+
     cfg.gpus = args.gpus
 
 
@@ -99,7 +100,7 @@ def main():
         model,
         datasets,
         cfg,
-        validate=args.validate,
+        validate=True,
         timestamp=timestamp,
         meta=meta)
 

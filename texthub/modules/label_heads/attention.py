@@ -17,6 +17,7 @@ class AttentionHead(nn.Module):
         self.loss_func = torch.nn.CrossEntropyLoss(ignore_index=0) # ignore [GO] token = ignore index 0
 
     def forward(self,img_tensor,extra_data,return_loss,batch_max_length=25,**kwargs):
+        print(img_tensor.size())
         if return_loss:
             return self.forward_train(img_tensor,extra_data)
         else:
@@ -143,6 +144,8 @@ class AttentionCell(nn.Module):
 
         alpha = F.softmax(e, dim=1)
         context = torch.bmm(alpha.permute(0, 2, 1), batch_H).squeeze(1)  # batch_size x num_channel
+        print(context.size())
+        print(char_onehots.size())
         concat_context = torch.cat([context, char_onehots], 1)  # batch_size x (num_channel + num_embedding)
         cur_hidden = self.rnn(concat_context, prev_hidden)
         return cur_hidden, alpha

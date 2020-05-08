@@ -143,9 +143,9 @@ class Runner(object):
                 self.model, data_batch, train_mode=True, **kwargs)
             if not isinstance(outputs, dict):
                 raise TypeError('batch_processor() must return a dict')
-            # if 'log_vars' in outputs:
-            #     self.log_buffer.update(outputs['log_vars'],
-            #                            outputs['num_samples'])
+            if 'log_vars' in outputs:
+                self.log_buffer.update(outputs['log_vars'],
+                                       outputs['num_samples'])
             self.outputs = outputs
             self.call_hook('after_train_iter')
             self._iter += 1
@@ -167,9 +167,9 @@ class Runner(object):
                     self.model, data_batch, train_mode=False, **kwargs)
             if not isinstance(outputs, dict):
                 raise TypeError('batch_processor() must return a dict')
-            # if 'log_vars' in outputs:
-            #     self.log_buffer.update(outputs['log_vars'],
-            #                            outputs['num_samples'])
+            if 'log_vars' in outputs:
+                self.log_buffer.update(outputs['log_vars'],
+                                       outputs['num_samples'])
             self.outputs = outputs
             self.call_hook('after_val_iter')
 
@@ -190,7 +190,7 @@ class Runner(object):
             raise RuntimeError(
                 "lr is not applicate because optimizer does not exist."
             )
-        return [group['lr'] for group in self.optimizer.param_group]
+        return [group['lr'] for group in self.optimizer.param_groups]
 
 
     """

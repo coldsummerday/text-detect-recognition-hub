@@ -203,6 +203,11 @@ def _non_dist_train(model,
         runner.resume(cfg.resume_from)
     elif cfg.load_from:
         runner.load_checkpoint(cfg.load_from)
+    else:
+        if hasattr(model, 'module'):
+            model.module.init_weights()
+        else:
+            model.init_weights()
     if validate:
         val_dataset_cfg = cfg.data.val
         eval_cfg = cfg.get('evaluation', {})
