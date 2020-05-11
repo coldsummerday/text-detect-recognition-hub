@@ -10,6 +10,7 @@ from .logbuffer import LogBuffer
 from .Hooks import (lrupdatehook,BaseHook,get_priority,OptimizerHook,CheckpointHook,IterTimerHook)
 from .Hooks.lrupdatehook import LrUpdaterHook
 from . import Hooks
+from ...utils import get_dist_info
 class Runner(object):
     """
     A trainning helper for pytorch
@@ -69,6 +70,8 @@ class Runner(object):
         else:
             self.meta = None
 
+        ##分布式多进程训练用
+        self._rank, self._world_size = get_dist_info()
 
         self.mode = None
         ##钩子函数,用于插件调用
@@ -351,6 +354,17 @@ class Runner(object):
     def model_name(self):
         """str: Name of the model, usually the module class name."""
         return self._model_name
+
+    @property
+    def rank(self):
+        """int: Rank of current process. (distributed training)"""
+        return self._rank
+
+    @property
+    def world_size(self):
+        """int: Number of processes participating in the job.
+        (distributed training)"""
+        return self._world_size
 
     @property
     def hooks(self):

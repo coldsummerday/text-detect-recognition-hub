@@ -17,6 +17,7 @@ class LmdbDataset(Dataset):
         self.charsets = charsets
         self.rgb = rgb
         self.sensitive = sensitive
+
         self.batch_max_length = batch_max_length
         self.default_h = default_h
         self.default_w = default_w
@@ -115,6 +116,7 @@ class LmdbDataset(Dataset):
             # We only train and evaluate on alphanumerics (or pre-defined character set in train.py)
             out_of_char = f'[^{self.charsets}]'
             label = re.sub(out_of_char, '', label)
+        ##在dataloader前变label 为tensor,保证在data_parallel时能正确地被均分
         data = {
             "img":img,
             "label":label

@@ -8,8 +8,6 @@ import torch.distributed as dist
 
 import json
 from .loghook import LoggerHook
-
-
 class TextLoggerHook(LoggerHook):
 
     def __init__(self, interval=10, ignore_last=True, reset_flag=False):

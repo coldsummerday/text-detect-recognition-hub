@@ -26,16 +26,18 @@ model = dict(
         hidden_size=256,
         charsets="ChineseCharset"
     )
-
 )
 train_cfg = dict()
 test_cfg = dict()
 dataset_type = 'LmdbDataset'
-data_root = '/Users/zhouhaibin/data/for_valid/test_lmdb_benchmark/'
+# data_root = '/Users/zhouhaibin/data/for_valid/test_lmdb_benchmark/'
+data_root = '/data/zhb/data/receipt/TextRecognition/3rd_lmdb_recognition_benchmark_data/for_valid/test_lmdb_benchmark/'
+
 train_pipeline = [
     dict(type='ResizeRecognitionImage', img_scale=(32,100)),
     dict(type='NormalizePADToTensor', max_size=(1,32,100),PAD_type="right"),
-    dict(type='Collect', keys=['img', 'label']),
+    dict(type="AttentionLabelEncode",charsets="ChineseCharset",batch_max_length=25),
+    dict(type='Collect', keys=['img', 'label',"ori_label"]),
 ]
 data = dict(
     imgs_per_gpu=2,

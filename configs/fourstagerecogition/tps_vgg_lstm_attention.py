@@ -32,14 +32,23 @@ cudnn_benchmark = True
 train_cfg = dict()
 test_cfg = dict()
 dataset_type = 'LmdbDataset'
-data_root = '/Users/zhouhaibin/data/for_valid/test_lmdb_benchmark/'
+data_root = '/data/zhb/data/receipt/TextRecognition/3rd_lmdb_recognition_benchmark_data/train_lmdb_benchmark/'
+val_data_root = '/data/zhb/data/receipt/TextRecognition/3rd_lmdb_recognition_benchmark_data/for_valid/test_lmdb_benchmark/'
+
 train_pipeline = [
+    dict(type='ResizeRecognitionImage', img_scale=(32,100)),
+    dict(type='NormalizePADToTensor', max_size=(1,32,100),PAD_type="right"),
+    dict(type="AttentionLabelEncode",charsets="ChineseCharset",batch_max_length=25),
+    dict(type='Collect', keys=['img', 'label',"ori_label"]),
+]
+val_pipeline = [
     dict(type='ResizeRecognitionImage', img_scale=(32,100)),
     dict(type='NormalizePADToTensor', max_size=(1,32,100),PAD_type="right"),
     dict(type='Collect', keys=['img', 'label']),
 ]
+##128每张显存 2613MiB,256:5207MiB
 data = dict(
-    imgs_per_gpu=2,
+    imgs_per_gpu=256,
     workers_per_gpu=2,
     train=dict(
         type=dataset_type,
@@ -49,15 +58,15 @@ data = dict(
         ),
     val=dict(
         type=dataset_type,
-        root=data_root,
-        pipeline = train_pipeline,
+        root=val_data_root,
+        pipeline = val_pipeline,
         charsets="ChineseCharset",
         )
 )
 
 
 # optimizer
-optimizer = dict(type='SGD', lr=2e-3, momentum=0.9, weight_decay=5e-4)
+optimizer = dict(type='Adadelta', lr=1, rho=0.95, eps=1e-8)
 optimizer_config = dict()
 # learning policy
 lr_config = dict(
@@ -66,19 +75,19 @@ lr_config = dict(
     warmup_iters=500,
     warmup_ratio=1.0 / 3,
     step=[16, 22])
-checkpoint_config = dict(interval=1)
+checkpoint_config = dict(interval=50)
 # yapf:disable
 log_config = dict(
-    interval=50,
+    interval=100,
     hooks=[
         dict(type='TextLoggerHook'),
         # dict(type='TensorboardLoggerHook')
     ])
 # yapf:enable
 # runtime settings
-total_epochs = 24
+total_epochs = 300
 log_level = 'INFO'
 work_dir = './work_dirs/tps_vgg_lstm_attention/'
 load_from = None
 resume_from = None
-workflow = [('train', 1),('val',2)]
+workflow = [('train', 1)]

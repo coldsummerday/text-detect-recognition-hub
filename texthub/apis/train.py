@@ -63,9 +63,14 @@ def recogition_batch_processor(model, data, train_mode=True):
     Returns:
         dict: A dict containing losses and log vars.
     """
+
     if train_mode:
         img_tensor = data["img"]
         labels = data["label"]
+        #判断模型是运行在cpu上还是GPU上
+        if next(model.module.parameters()).is_cuda:
+            img_tensor = img_tensor.cuda()
+            labels = labels.cuda()
         losses=model(img_tensor, labels, return_loss=True)
         loss, log_vars = parse_losses(losses)
 
@@ -74,8 +79,11 @@ def recogition_batch_processor(model, data, train_mode=True):
         return outputs
     else:
         img_tensor = data["img"]
+
         preds_str = model(img_tensor, None, return_loss=False)
-        return preds_str
+        return dict(
+            preds_str=preds_str,ori_label=data["ori_label"]
+        )
 
 
 # def _dist_train(model,
@@ -162,16 +170,18 @@ def _non_dist_train(model,
 
     # prepare data loaders
     dataset = dataset if isinstance(dataset, (list, tuple)) else [dataset]
+    batch_size = cfg.gpus * cfg.data.imgs_per_gpu
+    num_workers = cfg.gpus * cfg.data.workers_per_gpu
     data_loaders = [
         torch.utils.data.DataLoader(
             ds,
-            batch_size=cfg.data.imgs_per_gpu,
-            num_workers=cfg.data.workers_per_gpu,
+            batch_size=batch_size,
+            num_workers=num_workers,
             shuffle=True,
             pin_memory=True
         ) for ds in dataset
     ]
-    if torch.cuda.is_available():
+    if torch.cuda.is_available() and cfg.gpus!=0:
         # put model on gpus
         model = DataParallel(model, device_ids=range(cfg.gpus)).cuda()
 

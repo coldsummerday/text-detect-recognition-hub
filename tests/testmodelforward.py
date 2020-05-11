@@ -17,7 +17,8 @@ train_data_loader = torch.utils.data.DataLoader(
                 num_workers=cfg.data.workers_per_gpu,
                 pin_memory=True)
 
-
+import torch
+model =torch.nn.DataParallel(model).cuda()
 data = train_data_loader.__iter__().__next__()
 img = data['img']
 labels = data['label']

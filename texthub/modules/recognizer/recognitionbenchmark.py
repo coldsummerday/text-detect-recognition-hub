@@ -67,7 +67,7 @@ class FourStageModel(BaseRecognizer):
 
     def forward_test(self,img_tensor,extra_data,**kwargs):
         x = self.extract_feat(img_tensor)
-        outs = self.label_head.forward_test(x,extra_data=None)
+        outs = self.label_head(x,extra_data=None,return_loss=False)
         return outs
 
 
@@ -77,10 +77,14 @@ class FourStageModel(BaseRecognizer):
         """
         in the text recognition ,the extra_data is the label
         """
+        outputs =None
         if return_loss:
-            return self.forward_train(img_tensor, extra_data, **kwargs)
+            outputs = self.forward_train(img_tensor, extra_data, **kwargs)
+
         else:
-            return self.forward_test(img_tensor, extra_data, **kwargs)
+            outputs =  self.forward_test(img_tensor, extra_data, **kwargs)
+
+        return  outputs
 
 
 

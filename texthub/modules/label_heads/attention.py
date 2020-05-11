@@ -9,7 +9,14 @@ class AttentionHead(nn.Module):
     def __init__(self, input_size, hidden_size,charsets):
         super(AttentionHead, self).__init__()
         self.converter = AttnLabelConverter(charsets)
-        num_classes = len(charsets)
+        """
+        #在attentionlabelconvert 中,
+        list_token = ['[GO]', '[s]']  
+        list_character = list(charsets)
+        self.character = list_token + list_character
+        所以num_classes 应该为charset+2  "go,s"
+        """
+        num_classes = len(self.converter.character)
         self.attention_cell = AttentionCell(input_size, hidden_size, num_classes)
         self.hidden_size = hidden_size
         self.num_classes = num_classes
@@ -17,7 +24,6 @@ class AttentionHead(nn.Module):
         self.loss_func = torch.nn.CrossEntropyLoss(ignore_index=0) # ignore [GO] token = ignore index 0
 
     def forward(self,img_tensor,extra_data,return_loss,batch_max_length=25,**kwargs):
-        print(img_tensor.size())
         if return_loss:
             return self.forward_train(img_tensor,extra_data)
         else:
@@ -30,8 +36,7 @@ class AttentionHead(nn.Module):
 
     def forward_train(self,img_tensor,extra_data,batch_max_length=25,**kwargs):
         device = img_tensor.device
-        labels = extra_data
-        text, length = self.converter.encode(labels, device=device,batch_max_length=batch_max_length)
+        text = extra_data
         target = text[:,1:] # without [GO] Symbol
         text = text[:,:-1]# align with Attention.forward
 
@@ -47,18 +52,28 @@ class AttentionHead(nn.Module):
             # one-hot vectors for a i-th char. in a batch
             char_onehots = self._char_to_onehot(text[:, i], device=device,onehot_dim=self.num_classes)
             # hidden : decoder's hidden s_{t-1}, batch_H : encoder's hidden H, char_onehots : one-hot(y_{t-1})
-            hidden, alpha = self.attention_cell(hidden, img_tensor.contiguous(), char_onehots)
+            hidden, alpha = self.attention_cell(hidden, img_tensor, char_onehots)
             output_hiddens[:, i, :] = hidden[0]  # LSTM hidden index (0: hidden, 1: Cell)
         probs = self.generator(output_hiddens)
         return probs,target
 
     def forward_test(self,img_tensor,extra_data,batch_max_length=25,**kwargs):
+
+        """
+        在DataParallel 中,返回值有可能是map对象,需要单独处理
+        :param img_tensor:
+        :param extra_data:
+        :param batch_max_length:
+        :param kwargs:
+        :return:
+        """
         batch_size = img_tensor.size(0)
         device = img_tensor.device
         num_steps = batch_max_length + 1  # +1 for [s] at end of sentence.
 
         hidden = (torch.FloatTensor(batch_size, self.hidden_size).fill_(0).to(device),
                   torch.FloatTensor(batch_size, self.hidden_size).fill_(0).to(device))
+        ##TODO:此处target 可能有问题
         targets = torch.LongTensor(batch_size).fill_(0).to(device)  # [GO] token
         probs = torch.FloatTensor(batch_size, num_steps, self.num_classes).fill_(0).to(device)
 
@@ -144,8 +159,6 @@ class AttentionCell(nn.Module):
 
         alpha = F.softmax(e, dim=1)
         context = torch.bmm(alpha.permute(0, 2, 1), batch_H).squeeze(1)  # batch_size x num_channel
-        print(context.size())
-        print(char_onehots.size())
         concat_context = torch.cat([context, char_onehots], 1)  # batch_size x (num_channel + num_embedding)
         cur_hidden = self.rnn(concat_context, prev_hidden)
         return cur_hidden, alpha

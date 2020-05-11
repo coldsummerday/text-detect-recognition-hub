@@ -1,8 +1,8 @@
 import  collections
 
-from texthub.utils import build_from_cfg
+from ...utils import build_from_cfg
 from  ..registry import PIPELINES
-
+from ...datasets import CharsetDict
 
 class Compose(object):
     """
@@ -14,6 +14,10 @@ class Compose(object):
         for transform in transforms:
             #从config中加载
             if isinstance(transform,dict):
+                if "charsets" in transform.keys():
+                    charset_type_str = transform.pop('charsets')
+                    charset = CharsetDict.get(charset_type_str)
+                    transform.setdefault("charsets", charset)
                 transform = build_from_cfg(transform,PIPELINES)
                 self.transforms.append(transform)
             elif callable(transform):
