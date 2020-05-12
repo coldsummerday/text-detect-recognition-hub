@@ -2,7 +2,7 @@ import re
 
 import torch
 
-from texthub.utils import build_from_cfg
+from ...utils import build_from_cfg
 from .registry import OPTIMIZERS
 
 

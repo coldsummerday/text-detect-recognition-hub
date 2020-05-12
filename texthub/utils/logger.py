@@ -1,5 +1,5 @@
 import logging
-
+from .dist_utils import get_dist_info
 
 def get_root_logger(log_file=None, log_level=logging.INFO):
     """Get the root logger.
@@ -26,15 +26,15 @@ def get_root_logger(log_file=None, log_level=logging.INFO):
 
     format_str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     logging.basicConfig(format=format_str, level=log_level)
-    #rank, _ = get_dist_info()
-    #rank, world_size = get_dist_info() 用于多机分布式训练
-    # if rank != 0:
-    #     logger.setLevel('ERROR')
-    # elif log_file is not None:
-    #     file_handler = logging.FileHandler(log_file, 'w')
-    #     file_handler.setFormatter(logging.Formatter(format_str))
-    #     file_handler.setLevel(log_level)
-    #     logger.addHandler(file_handler)
+    # rank, _ = get_dist_info()
+    rank, world_size = get_dist_info() #用于多机分布式训练
+    if rank != 0:
+        logger.setLevel('ERROR')
+    elif log_file is not None:
+        file_handler = logging.FileHandler(log_file, 'w')
+        file_handler.setFormatter(logging.Formatter(format_str))
+        file_handler.setLevel(log_level)
+        logger.addHandler(file_handler)
     if log_file is not None:
         file_handler = logging.FileHandler(log_file, 'w')
         file_handler.setFormatter(logging.Formatter(format_str))

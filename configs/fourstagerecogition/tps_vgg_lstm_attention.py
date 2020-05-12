@@ -76,6 +76,7 @@ lr_config = dict(
     warmup_ratio=1.0 / 3,
     step=[16, 22])
 checkpoint_config = dict(interval=50)
+dist_params = dict(backend='nccl')
 # yapf:disable
 log_config = dict(
     interval=100,

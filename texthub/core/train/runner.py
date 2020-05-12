@@ -11,6 +11,7 @@ from .Hooks import (lrupdatehook,BaseHook,get_priority,OptimizerHook,CheckpointH
 from .Hooks.lrupdatehook import LrUpdaterHook
 from . import Hooks
 from ...utils import get_dist_info
+
 class Runner(object):
     """
     A trainning helper for pytorch
@@ -243,7 +244,7 @@ class Runner(object):
         return load_checkpoint(self.model,filename,map_location,strict,self.logger)
 
     def save_checkpoint(self,out_dir,
-                        filename_tmpl="epoch_{}.pth",
+                        filename_tmpl="{}_epoch_{}.pth",
                         save_optimizer=True,
                         meta  =None,
                         create_symlink=True):
@@ -251,7 +252,7 @@ class Runner(object):
             meta = dict(epoch=self.epoch+1,iter = self.iter)
         else:
             meta.update(epoch=self.epoch+1,iter = self.iter)
-        filename = filename_tmpl.format(self.epoch + 1)
+        filename = filename_tmpl.format(self.model_name,self.epoch + 1)
         filepath = osp.join(out_dir, filename)
         optimizer = self.optimizer if save_optimizer else None
         save_checkpoint(self.model, filepath, optimizer=optimizer, meta=meta)

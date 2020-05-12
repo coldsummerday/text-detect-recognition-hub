@@ -1,5 +1,4 @@
-from texthub.utils import Registry
-
+from ..utils import  Registry
 BACKBONES = Registry('backbone')
 IMGTRANSFORMATIONS = Registry("imgtransformation")
 SEQUENCERECOGNITIONS = Registry("sequencerecognition")

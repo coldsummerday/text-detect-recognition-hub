@@ -1,6 +1,6 @@
 from torch import nn
 from ..datasets.charsets import CharsetDict
-from texthub.utils import build_from_cfg
+from ..utils import build_from_cfg
 from .registry import (BACKBONES, IMGTRANSFORMATIONS,
                        SEQUENCERECOGNITIONS,
                        RECOGNIZERS,NECKS,HEADS,

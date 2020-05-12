@@ -1,7 +1,7 @@
 import  copy
-from texthub.utils import  build_from_cfg
+from ..utils import  build_from_cfg
 from .registry import  DATASETS
-from texthub.datasets import CharsetDict
+from ..datasets import CharsetDict
 
 
 

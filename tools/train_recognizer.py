@@ -8,12 +8,14 @@ import sys
 this_path = os.path.split(os.path.realpath(__file__))[0]
 sys.path.append(osp.join(this_path,'../'))
 
+
 import torch
 from texthub.utils import Config
 from texthub.apis import train_recoginizer
 from texthub.datasets import  build_dataset
 from texthub.modules import build_recognizer
 from texthub.utils import get_root_logger
+from texthub.utils.dist_utils import init_dist
 
 
 
@@ -29,7 +31,12 @@ def parse_args():
         default=1,
         help='number of gpus to use '
         '(only applicable to non-distributed training)')
+    parser.add_argument("--distributed",default=True,type=bool,help="use DistributedDataParallel to train")
+    parser.add_argument('--local_rank', type=int, default=0)
+
     args = parser.parse_args()
+    if 'LOCAL_RANK' not in os.environ:
+        os.environ['LOCAL_RANK'] = str(args.local_rank)
     return args
 
 
@@ -47,6 +54,12 @@ def main():
         cfg.resume_from = args.resume
 
     cfg.gpus = args.gpus
+
+    if args.distributed:
+        """
+        pytorch:为单机多卡
+        """
+        init_dist("pytorch", **cfg.dist_params)
 
 
 
@@ -70,7 +83,7 @@ def main():
     # meta['env_info'] = env_info
 
     # # log some basic info
-    # logger.info('Distributed training: {}'.format(distributed))
+    logger.info('Distributed training: {}'.format(args.distributed))
     logger.info('Config:\n{}'.format(cfg.text))
 
     # # set random seeds
@@ -100,6 +113,7 @@ def main():
         model,
         datasets,
         cfg,
+        distributed=args.distributed,
         validate=True,
         timestamp=timestamp,
         meta=meta)

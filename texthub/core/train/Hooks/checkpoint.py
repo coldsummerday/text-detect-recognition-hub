@@ -1,6 +1,5 @@
 from .basehook import BaseHook
-
-
+from ....utils.dist_utils import master_only
 class CheckpointHook(BaseHook):
 
     def __init__(self,
@@ -14,6 +13,7 @@ class CheckpointHook(BaseHook):
         self.args = kwargs
 
     ##用于每个interval 保存checkpoint
+    @master_only
     def after_train_epoch(self, runner):
         if not self.every_n_epochs(runner, self.interval):
             return

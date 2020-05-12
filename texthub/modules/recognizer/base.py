@@ -1,5 +1,5 @@
 from abc import ABCMeta,abstractmethod
-from texthub.utils import print_log
+from ...utils import print_log
 import torch.nn as nn
 
 class BaseRecognizer(nn.Module,metaclass=ABCMeta):

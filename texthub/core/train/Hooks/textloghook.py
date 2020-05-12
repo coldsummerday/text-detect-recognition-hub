@@ -5,9 +5,10 @@ from collections import OrderedDict
 
 import torch
 import torch.distributed as dist
-
 import json
 from .loghook import LoggerHook
+
+from ....utils.dist_utils import master_only
 class TextLoggerHook(LoggerHook):
 
     def __init__(self, interval=10, ignore_last=True, reset_flag=False):
@@ -66,6 +67,7 @@ class TextLoggerHook(LoggerHook):
         log_str += ', '.join(log_items)
         runner.logger.info(log_str)
 
+    @master_only
     def _dump_log(self, log_dict, runner):
         # dump log in json format
         json_log = OrderedDict()
@@ -73,6 +75,7 @@ class TextLoggerHook(LoggerHook):
             json_log[k] = self._round_float(v)
         # only append log at last line
 
+        #分布式中只有一个进程需要写入文件
         with open(self.json_log_path, 'a+') as f:
             json.dump(json_log, f,indent=4)
             f.write('\n')

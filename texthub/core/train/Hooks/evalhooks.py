@@ -3,7 +3,7 @@ from .basehook import BaseHook
 from ....datasets import build_dataset
 import random
 import torch
-from torch.nn.parallel import DataParallel
+from torch.nn.parallel import DataParallel,DistributedDataParallel
 
 class RecoEvalHook(BaseHook):
     def __init__(self,dataset,interval=1,show_number=5,**eval_kwargs):
@@ -41,7 +41,7 @@ class RecoEvalHook(BaseHook):
                 if next(runner.model.parameters()).is_cuda:
                     img_tensor = img_tensor.cuda()
                 # 如果是数据并行,则只用一块gpu来处理结果,不然默认的dataparallel的gather函数会将字符串类型的返回结果处理成str(map)
-                if type(runner.model) == DataParallel:
+                if type(runner.model) == DataParallel or type(runner.model)==DistributedDataParallel:
                     outputs = runner.model.module(img_tensor=img_tensor, extra_data=None,
                                                   return_loss=False)
                 else:
@@ -60,8 +60,71 @@ class RecoEvalHook(BaseHook):
             predicted_result_log += f'{gt:25s} | {pred:25s} |\t{str(pred == gt)}\n'
             predicted_result_log += f'{dashed_line}\n'
 
-        runner.logger.info(predicted_result_log + '\n')
+        runner.logger.info(predicted_result_log)
         runner.model.train()
+
+
+class DistRecoEvalHook(BaseHook):
+    def __init__(self,dataset,interval=1,show_number=5,**eval_kwargs):
+        if isinstance(dataset, Dataset):
+            self.dataset = dataset
+        elif isinstance(dataset, dict):
+            self.dataset = build_dataset(dataset)
+        else:
+            raise TypeError(
+                'dataset must be a Dataset object or a dict, not {}'.format(
+                    type(dataset)))
+        self.interval = interval
+        self.eval_kwargs = eval_kwargs
+        self.show_number = show_number
+        self.idx_list = list(range(len(self.dataset)))
+
+
+    def after_train_epoch(self, runner):
+        if not self.every_n_iters(runner, self.interval):
+            return
+
+        if runner.rank==0:
+            """
+            主机进行测试,其他继续
+            """
+            runner.model.eval()
+        ##TODO:eval 整个valid数据集并计算准确率跟
+            random_idx = random.sample(self.idx_list, self.show_number)
+            labels = []
+            preds = []
+            with torch.no_grad():
+                for idx in random_idx:
+                    data = self.dataset[idx]
+                    labels.append(data["label"])
+                    # compute output
+                    img_tensor = data["img"]
+                    img_tensor = img_tensor.unsqueeze(0)
+                    # 判断模型是运行在cpu上还是GPU上
+                    if next(runner.model.parameters()).is_cuda:
+                        img_tensor = img_tensor.cuda()
+                    # 如果是数据并行,则只用一块gpu来处理结果,不然默认的dataparallel的gather函数会将字符串类型的返回结果处理成str(map)
+                    if type(runner.model) == DataParallel:
+                        outputs = runner.model.module(img_tensor=img_tensor, extra_data=None,
+                                                  return_loss=False)
+                    else:
+                        outputs = runner.model(img_tensor=img_tensor, extra_data=None,
+                                           return_loss=False)
+                    preds.append(outputs[0])
+            # show some predicted results
+            dashed_line = '-' * 80
+            head = f'{"Ground Truth":25s} | {"Prediction":25s} | Confidence Score & T/F'
+            predicted_result_log = f'\n{dashed_line}\n{head}\n{dashed_line}\n'
+            for i in range(len(labels)):
+                gt = labels[i]
+                pred = preds[i]
+                gt = gt[:gt.find('[s]')]
+                pred = pred[:pred.find('[s]')]
+                predicted_result_log += f'{gt:25s} | {pred:25s} |\t{str(pred == gt)}\n'
+                predicted_result_log += f'{dashed_line}\n'
+
+            runner.logger.info(predicted_result_log)
+            runner.model.train()
 
 
 

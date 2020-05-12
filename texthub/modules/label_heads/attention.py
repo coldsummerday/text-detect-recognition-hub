@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from texthub.modules.registry import HEADS
+from ..registry import HEADS
 from .labelconverter import AttnLabelConverter
 
 @HEADS.register_module
