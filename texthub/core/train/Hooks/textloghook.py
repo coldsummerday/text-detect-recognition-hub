@@ -34,8 +34,12 @@ class TextLoggerHook(LoggerHook):
 
     def _log_info(self, log_dict, runner):
         if runner.mode == 'train':
+            if runner.train_max_mode:
+                total_iter_info = len(runner.data_loader)
+            else:
+                total_iter_info = len(runner.data_loader) * runner.max_epochs
             log_str = 'Epoch [{}][{}/{}]\tlr: {:.5f}, '.format(
-                log_dict['epoch'], log_dict['iter'], len(runner.data_loader),
+                log_dict['epoch'], log_dict['iter'], total_iter_info,
                 log_dict['lr'])
             if 'time' in log_dict.keys():
                 self.time_sec_tot += (log_dict['time'] * self.interval)
@@ -94,7 +98,10 @@ class TextLoggerHook(LoggerHook):
         mode = 'train' if 'time' in runner.log_buffer.output else 'val'
         log_dict['mode'] = mode
         log_dict['epoch'] = runner.epoch + 1
-        log_dict['iter'] = runner.inner_iter + 1
+        if runner.train_max_mode:
+            log_dict['iter'] = runner.inner_iter + 1
+        else:
+            log_dict['iter'] = runner.iter
         # only record lr of the first param group
         log_dict['lr'] = runner.current_lr()[0]
         if mode == 'train':

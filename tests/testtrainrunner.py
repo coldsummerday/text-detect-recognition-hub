@@ -13,7 +13,6 @@ model = build_recognizer(cfg.model)
 
 train_data_loader = torch.utils.data.DataLoader(
                 train_dataset, batch_size=cfg.data.imgs_per_gpu,
-                shuffle=True,
                 num_workers=cfg.data.workers_per_gpu,
                 pin_memory=True)
 

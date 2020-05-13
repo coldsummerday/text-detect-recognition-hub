@@ -89,6 +89,7 @@ class AttentionHead(nn.Module):
         # select max probabilty (greedy decoding) then decode index to character
         _, preds_index = preds.max(2)
         preds_str = self.converter.decode(preds_index, [batch_max_length]*batch_size)
+        
         return preds_str
 
     def _char_to_onehot(self, input_char,device, onehot_dim=38):

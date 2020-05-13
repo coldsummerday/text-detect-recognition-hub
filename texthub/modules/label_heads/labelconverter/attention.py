@@ -43,5 +43,6 @@ class AttnLabelConverter(object):
         texts = []
         for index, l in enumerate(length):
             text = ''.join([self.character[i] for i in text_index[index, :]])
+            text = text[:text.find("[s]")]
             texts.append(text)
         return texts

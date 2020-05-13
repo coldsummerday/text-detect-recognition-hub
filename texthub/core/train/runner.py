@@ -74,17 +74,20 @@ class Runner(object):
         ##分布式多进程训练用
         self._rank, self._world_size = get_dist_info()
 
+
         self.mode = None
         ##钩子函数,用于插件调用
         self._hooks = []
         #train时候记录属性
+
+        self.train_max_mode = True #true ->max_epochs  ,False->max_iters
         self._epoch = 0
         self._iter = 0
         self._inner_iter = 0
         self._max_epochs = 0
         self._max_iters = 0
 
-    def run(self, data_loaders, workflow, max_epochs, **kwargs):
+    def run(self, data_loaders, workflow, max_number,train_max_mode=True, **kwargs):
         """Start running.
 
         Args:
@@ -94,12 +97,20 @@ class Runner(object):
                 running order and epochs. E.g, [('train', 2), ('val', 1)] means
                 running 2 epochs for training and 1 epoch for validation,
                 iteratively.
-            max_epochs (int): Total training epochs.
+            train_max_mode (bool) true ->max_epochs  ,False->max_iters
+            max_number (int): total trainning time depend on train_max_mode
         """
         assert isinstance(data_loaders, list)
 
         assert len(data_loaders) == len(workflow)
 
+        self.train_max_mode = train_max_mode
+        if self.train_max_mode:
+            ##epoch
+            max_epochs = max_number
+        else:
+            #默认第一个为train_data_loader
+            max_epochs = (max_number //  len(data_loaders[0]))+1
         self._max_epochs = max_epochs
         work_dir = self.work_dir if self.work_dir is not None else 'NONE'
         self.logger.info('Start running, work_dir: %s',
@@ -244,7 +255,7 @@ class Runner(object):
         return load_checkpoint(self.model,filename,map_location,strict,self.logger)
 
     def save_checkpoint(self,out_dir,
-                        filename_tmpl="{}_epoch_{}.pth",
+                        filename_tmpl="{}_{}_{}.pth",
                         save_optimizer=True,
                         meta  =None,
                         create_symlink=True):
@@ -252,7 +263,10 @@ class Runner(object):
             meta = dict(epoch=self.epoch+1,iter = self.iter)
         else:
             meta.update(epoch=self.epoch+1,iter = self.iter)
-        filename = filename_tmpl.format(self.model_name,self.epoch + 1)
+        if self.train_max_mode:
+            filename = filename_tmpl.format(self.model_name,"epoch",self.epoch + 1)
+        else:
+            filename = filename_tmpl.format(self.model_name,"iter",self.iter)
         filepath = osp.join(out_dir, filename)
         optimizer = self.optimizer if save_optimizer else None
         save_checkpoint(self.model, filepath, optimizer=optimizer, meta=meta)

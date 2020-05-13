@@ -55,8 +55,6 @@ class RecoEvalHook(BaseHook):
         for i in range(len(labels)):
             gt = labels[i]
             pred = preds[i]
-            gt = gt[:gt.find('[s]')]
-            pred = pred[:pred.find('[s]')]
             predicted_result_log += f'{gt:25s} | {pred:25s} |\t{str(pred == gt)}\n'
             predicted_result_log += f'{dashed_line}\n'
 
@@ -78,7 +76,6 @@ class DistRecoEvalHook(BaseHook):
         self.eval_kwargs = eval_kwargs
         self.show_number = show_number
         self.idx_list = list(range(len(self.dataset)))
-
 
     def after_train_epoch(self, runner):
         if not self.every_n_iters(runner, self.interval):
@@ -118,8 +115,6 @@ class DistRecoEvalHook(BaseHook):
             for i in range(len(labels)):
                 gt = labels[i]
                 pred = preds[i]
-                gt = gt[:gt.find('[s]')]
-                pred = pred[:pred.find('[s]')]
                 predicted_result_log += f'{gt:25s} | {pred:25s} |\t{str(pred == gt)}\n'
                 predicted_result_log += f'{dashed_line}\n'
 

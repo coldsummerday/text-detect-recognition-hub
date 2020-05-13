@@ -46,6 +46,12 @@ val_pipeline = [
     dict(type='NormalizePADToTensor', max_size=(1,32,100),PAD_type="right"),
     dict(type='Collect', keys=['img', 'label']),
 ]
+test_pipeline = [
+    dict(type='ResizeRecognitionImage', img_scale=(32, 100)),
+    dict(type='NormalizePADToTensor', max_size=(1, 32, 100), PAD_type="right"),
+    dict(type='Collect', keys=['img']),
+]
+
 ##128每张显存 2613MiB,256:5207MiB
 data = dict(
     imgs_per_gpu=256,
@@ -64,7 +70,6 @@ data = dict(
         )
 )
 
-
 # optimizer
 optimizer = dict(type='Adadelta', lr=1, rho=0.95, eps=1e-8)
 optimizer_config = dict()
@@ -75,18 +80,18 @@ lr_config = dict(
     warmup_iters=500,
     warmup_ratio=1.0 / 3,
     step=[16, 22])
-checkpoint_config = dict(interval=50)
+checkpoint_config = dict(interval=50000,save_mode=False) ##save_mode true->epoch, false->iter
 dist_params = dict(backend='nccl')
 # yapf:disable
 log_config = dict(
-    interval=100,
+    interval=1000,
     hooks=[
         dict(type='TextLoggerHook'),
         # dict(type='TensorboardLoggerHook')
     ])
 # yapf:enable
 # runtime settings
-total_epochs = 300
+total_iters = 300000
 log_level = 'INFO'
 work_dir = './work_dirs/tps_vgg_lstm_attention/'
 load_from = None

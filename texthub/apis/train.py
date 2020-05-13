@@ -1,16 +1,13 @@
-import random
-from collections import OrderedDict
 
-import numpy as np
 import torch
-import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel,DataParallel
 from ..core.train import Runner
-from texthub.utils import get_root_logger
+from ..utils import get_root_logger
 from ..core.optimizer import build_optimizer
 from ..core.train.Hooks import RecoEvalHook,DistSamplerSeedHook,DistRecoEvalHook,DistOptimizerHook
 from torch.utils.data.distributed import DistributedSampler
-from texthub.utils.dist_utils import get_dist_info
+from ..utils.dist_utils import get_dist_info
+from .process import recogition_batch_processor
 
 def train_recoginizer(model,
                    dataset,
@@ -49,48 +46,7 @@ def detect_bact_processor(model,data,train_mode=True):
     pass
 
 
-def recogition_batch_processor(model, data, train_mode=True):
-    """Process a data batch.
 
-    This method is required as an argument of Runner, which defines how to
-    process a data batch and obtain proper outputs. The first 3 arguments of
-    batch_processor are fixed.
-
-    Args:
-        model (nn.Module): A PyTorch model.
-        data (dict): The data batch in a dict.
-        train_mode (bool): Training mode or not. It may be useless for some
-            models.
-
-    Returns:
-        dict: A dict containing losses and log vars.
-    """
-
-    if train_mode:
-        img_tensor = data["img"]
-        labels = data["label"]
-        #判断模型是运行在cpu上还是GPU上
-        if hasattr(model,"module"):
-            if next(model.module.parameters()).is_cuda:
-                img_tensor = img_tensor.cuda()
-                labels = labels.cuda()
-        else:
-            if next(model.parameters()).is_cuda:
-                img_tensor = img_tensor.cuda()
-                labels = labels.cuda()
-        losses=model(img_tensor, labels, return_loss=True)
-        loss, log_vars = parse_losses(losses)
-
-        outputs = dict(
-            loss=loss, log_vars=log_vars, num_samples=len(data['img'].data))
-        return outputs
-    else:
-        img_tensor = data["img"]
-
-        preds_str = model(img_tensor, None, return_loss=False)
-        return dict(
-            preds_str=preds_str,ori_label=data["ori_label"]
-        )
 
 
 def _dist_train(model,
@@ -172,7 +128,11 @@ def _dist_train(model,
         runner.resume(cfg.resume_from)
     elif cfg.load_from:
         runner.load_checkpoint(cfg.load_from)
-    runner.run(data_loaders, cfg.workflow, cfg.total_epochs)
+    iters_num = cfg.get('total_iters', None)
+    if iters_num!=None:
+        runner.run(data_loaders, cfg.workflow, iters_num,train_max_mode=False)
+    else:
+        runner.run(data_loaders, cfg.workflow, cfg.total_epochs)
 
 
 def _non_dist_train(model,
@@ -239,32 +199,13 @@ def _non_dist_train(model,
         eval_cfg = cfg.get('evaluation', {})
         runner.register_hook(RecoEvalHook(val_dataset_cfg, **eval_cfg))
 
+    iters_num = cfg.get('total_iters', None)
+    if iters_num != None:
+        runner.run(data_loaders, cfg.workflow, iters_num, train_max_mode=False)
+    else:
+        runner.run(data_loaders, cfg.workflow, cfg.total_epochs,train_max_mode=True)
 
-    runner.run(data_loaders, cfg.workflow, cfg.total_epochs)
 
 
 
 
-
-def parse_losses(losses):
-    log_vars = OrderedDict()
-    for loss_name, loss_value in losses.items():
-        if isinstance(loss_value, torch.Tensor):
-            log_vars[loss_name] = loss_value.mean()
-        elif isinstance(loss_value, list):
-            log_vars[loss_name] = sum(_loss.mean() for _loss in loss_value)
-        else:
-            raise TypeError(
-                '{} is not a tensor or list of tensors'.format(loss_name))
-
-    loss = sum(_value for _key, _value in log_vars.items() if 'loss' in _key)
-
-    log_vars['loss'] = loss
-    for loss_name, loss_value in log_vars.items():
-        # reduce loss when distributed training
-        if dist.is_available() and dist.is_initialized():
-            loss_value = loss_value.data.clone()
-            dist.all_reduce(loss_value.div_(dist.get_world_size()))
-        log_vars[loss_name] = loss_value.item()
-
-    return loss, log_vars
