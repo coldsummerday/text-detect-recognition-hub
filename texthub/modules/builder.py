@@ -4,7 +4,7 @@ from ..utils import build_from_cfg
 from .registry import (BACKBONES, IMGTRANSFORMATIONS,
                        SEQUENCERECOGNITIONS,
                        RECOGNIZERS,NECKS,HEADS,
-                       ROI_EXTRACTORS, SHARED_HEADS)
+                       ROI_EXTRACTORS, SHARED_HEADS,DETECTORS)
 
 
 def build(cfg, registry, default_args=None):
@@ -37,6 +37,8 @@ def build_head(cfg):
 def build_recognizer(cfg, train_cfg=None, test_cfg=None):
     return build(cfg, RECOGNIZERS, dict(train_cfg=train_cfg, test_cfg=test_cfg))
 
+def build_detector(cfg, train_cfg=None, test_cfg=None):
+    return build(cfg, DETECTORS, dict(train_cfg=train_cfg, test_cfg=test_cfg))
 
 def build_backbone(cfg):
     return build(cfg, BACKBONES)

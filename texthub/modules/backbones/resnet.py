@@ -1,77 +1,97 @@
-import torch.nn as nn
-import torch.utils.checkpoint as cp
-from mmcv.cnn import constant_init, kaiming_init
-from mmcv.runner import load_checkpoint
-from torch.nn.modules.batchnorm import _BatchNorm
 
-from mmdet.models.plugins import GeneralizedAttention
-from mmdet.ops import ContextBlock
-from mmdet.utils import get_root_logger
+"""
+standard resnet from
+torchvision/models/resnet.py
+
+change the forward to
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        c2 = self.layer1(x)
+        c3 = self.layer2(c2)
+        c4 = self.layer3(c3)
+        c5 = self.layer4(c4)
+
+        return c2, c3, c4, c5
+
+
+out channel:
+backbone_dict = {'resnet18': {'models': resnet18, 'out': [64, 128, 256, 512]},
+                 'resnet34': {'models': resnet34, 'out': [64, 128, 256, 512]},
+                 'resnet50': {'models': resnet50, 'out': [256, 512, 1024, 2048]},
+                 'resnet101': {'models': resnet101, 'out': [256, 512, 1024, 2048]},
+                 'resnet152': {'models': resnet152, 'out': [256, 512, 1024, 2048]},
+                 'resnext50_32x4d': {'models': resnext50_32x4d, 'out': [256, 512, 1024, 2048]},
+                 'resnext101_32x8d': {'models': resnext101_32x8d, 'out': [256, 512, 1024, 2048]},
+"""
+try:
+    from torch.hub import load_state_dict_from_url
+except ImportError:
+    from torch.utils.model_zoo import load_url as load_state_dict_from_url
+import torch.nn as nn
 from ..registry import BACKBONES
-from ..utils import build_conv_layer, build_norm_layer
+model_urls = {
+    'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
+    'resnet34': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
+    'resnet50': 'https://download.pytorch.org/models/resnet50-19c8e357.pth',
+    'resnet101': 'https://download.pytorch.org/models/resnet101-5d3b4d8f.pth',
+    'resnet152': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
+    'resnext50_32x4d': 'https://download.pytorch.org/models/resnext50_32x4d-7cdf4587.pth',
+    'resnext101_32x8d': 'https://download.pytorch.org/models/resnext101_32x8d-8ba56ff5.pth',
+}
+
+
+def gnnorm2d(num_channels, num_groups=32):
+    if num_groups > 0:
+        return nn.GroupNorm(num_groups,num_channels)
+    else:
+        return nn.BatchNorm2d(num_channels)
+
+
+def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
+    """3x3 convolution with padding"""
+    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
+                     padding=dilation, groups=groups, bias=False, dilation=dilation)
+
+
+def conv1x1(in_planes, out_planes, stride=1):
+    """1x1 convolution"""
+    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
 
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self,
-                 inplanes,
-                 planes,
-                 stride=1,
-                 dilation=1,
-                 downsample=None,
-                 style='pytorch',
-                 with_cp=False,
-                 conv_cfg=None,
-                 norm_cfg=dict(type='BN'),
-                 dcn=None,
-                 gcb=None,
-                 gen_attention=None):
+    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
+                 base_width=64, dilation=1, norm_layer=None):
         super(BasicBlock, self).__init__()
-        assert dcn is None, 'Not implemented yet.'
-        assert gen_attention is None, 'Not implemented yet.'
-        assert gcb is None, 'Not implemented yet.'
-
-        self.norm1_name, norm1 = build_norm_layer(norm_cfg, planes, postfix=1)
-        self.norm2_name, norm2 = build_norm_layer(norm_cfg, planes, postfix=2)
-
-        self.conv1 = build_conv_layer(
-            conv_cfg,
-            inplanes,
-            planes,
-            3,
-            stride=stride,
-            padding=dilation,
-            dilation=dilation,
-            bias=False)
-        self.add_module(self.norm1_name, norm1)
-        self.conv2 = build_conv_layer(
-            conv_cfg, planes, planes, 3, padding=1, bias=False)
-        self.add_module(self.norm2_name, norm2)
-
+        if norm_layer is None:
+            norm_layer = nn.BatchNorm2d
+        if groups != 1 or base_width != 64:
+            raise ValueError('BasicBlock only supports groups=1 and base_width=64')
+        if dilation > 1:
+            raise NotImplementedError("Dilation > 1 not supported in BasicBlock")
+        # Both self.conv1 and self.downsample layers downsample the input when stride != 1
+        self.conv1 = conv3x3(inplanes, planes, stride)
+        self.bn1 = norm_layer(planes)
         self.relu = nn.ReLU(inplace=True)
+        self.conv2 = conv3x3(planes, planes)
+        self.bn2 = norm_layer(planes)
         self.downsample = downsample
         self.stride = stride
-        self.dilation = dilation
-        assert not with_cp
-
-    @property
-    def norm1(self):
-        return getattr(self, self.norm1_name)
-
-    @property
-    def norm2(self):
-        return getattr(self, self.norm2_name)
 
     def forward(self, x):
         identity = x
 
         out = self.conv1(x)
-        out = self.norm1(out)
+        out = self.bn1(out)
         out = self.relu(out)
 
         out = self.conv2(out)
-        out = self.norm2(out)
+        out = self.bn2(out)
 
         if self.downsample is not None:
             identity = self.downsample(x)
@@ -85,432 +105,267 @@ class BasicBlock(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self,
-                 inplanes,
-                 planes,
-                 stride=1,
-                 dilation=1,
-                 downsample=None,
-                 style='pytorch',
-                 with_cp=False,
-                 conv_cfg=None,
-                 norm_cfg=dict(type='BN'),
-                 dcn=None,
-                 gcb=None,
-                 gen_attention=None):
-        """Bottleneck block for ResNet.
-        If style is "pytorch", the stride-two layer is the 3x3 conv layer,
-        if it is "caffe", the stride-two layer is the first 1x1 conv layer.
-        """
+    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
+                 base_width=64, dilation=1, norm_layer=None):
         super(Bottleneck, self).__init__()
-        assert style in ['pytorch', 'caffe']
-        assert dcn is None or isinstance(dcn, dict)
-        assert gcb is None or isinstance(gcb, dict)
-        assert gen_attention is None or isinstance(gen_attention, dict)
-
-        self.inplanes = inplanes
-        self.planes = planes
-        self.stride = stride
-        self.dilation = dilation
-        self.style = style
-        self.with_cp = with_cp
-        self.conv_cfg = conv_cfg
-        self.norm_cfg = norm_cfg
-        self.dcn = dcn
-        self.with_dcn = dcn is not None
-        self.gcb = gcb
-        self.with_gcb = gcb is not None
-        self.gen_attention = gen_attention
-        self.with_gen_attention = gen_attention is not None
-
-        if self.style == 'pytorch':
-            self.conv1_stride = 1
-            self.conv2_stride = stride
-        else:
-            self.conv1_stride = stride
-            self.conv2_stride = 1
-
-        self.norm1_name, norm1 = build_norm_layer(norm_cfg, planes, postfix=1)
-        self.norm2_name, norm2 = build_norm_layer(norm_cfg, planes, postfix=2)
-        self.norm3_name, norm3 = build_norm_layer(
-            norm_cfg, planes * self.expansion, postfix=3)
-
-        self.conv1 = build_conv_layer(
-            conv_cfg,
-            inplanes,
-            planes,
-            kernel_size=1,
-            stride=self.conv1_stride,
-            bias=False)
-        self.add_module(self.norm1_name, norm1)
-        fallback_on_stride = False
-        if self.with_dcn:
-            fallback_on_stride = dcn.pop('fallback_on_stride', False)
-        if not self.with_dcn or fallback_on_stride:
-            self.conv2 = build_conv_layer(
-                conv_cfg,
-                planes,
-                planes,
-                kernel_size=3,
-                stride=self.conv2_stride,
-                padding=dilation,
-                dilation=dilation,
-                bias=False)
-        else:
-            assert self.conv_cfg is None, 'conv_cfg cannot be None for DCN'
-            self.conv2 = build_conv_layer(
-                dcn,
-                planes,
-                planes,
-                kernel_size=3,
-                stride=self.conv2_stride,
-                padding=dilation,
-                dilation=dilation,
-                bias=False)
-
-        self.add_module(self.norm2_name, norm2)
-        self.conv3 = build_conv_layer(
-            conv_cfg,
-            planes,
-            planes * self.expansion,
-            kernel_size=1,
-            bias=False)
-        self.add_module(self.norm3_name, norm3)
-
+        if norm_layer is None:
+            norm_layer = nn.BatchNorm2d
+        width = int(planes * (base_width / 64.)) * groups
+        # Both self.conv2 and self.downsample layers downsample the input when stride != 1
+        self.conv1 = conv1x1(inplanes, width)
+        self.bn1 = norm_layer(width)
+        self.conv2 = conv3x3(width, width, stride, groups, dilation)
+        self.bn2 = norm_layer(width)
+        self.conv3 = conv1x1(width, planes * self.expansion)
+        self.bn3 = norm_layer(planes * self.expansion)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
-
-        if self.with_gcb:
-            gcb_inplanes = planes * self.expansion
-            self.context_block = ContextBlock(inplanes=gcb_inplanes, **gcb)
-
-        # gen_attention
-        if self.with_gen_attention:
-            self.gen_attention_block = GeneralizedAttention(
-                planes, **gen_attention)
-
-    @property
-    def norm1(self):
-        return getattr(self, self.norm1_name)
-
-    @property
-    def norm2(self):
-        return getattr(self, self.norm2_name)
-
-    @property
-    def norm3(self):
-        return getattr(self, self.norm3_name)
+        self.stride = stride
 
     def forward(self, x):
+        identity = x
 
-        def _inner_forward(x):
-            identity = x
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
 
-            out = self.conv1(x)
-            out = self.norm1(out)
-            out = self.relu(out)
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu(out)
 
-            out = self.conv2(out)
-            out = self.norm2(out)
-            out = self.relu(out)
+        out = self.conv3(out)
+        out = self.bn3(out)
 
-            if self.with_gen_attention:
-                out = self.gen_attention_block(out)
+        if self.downsample is not None:
+            identity = self.downsample(x)
 
-            out = self.conv3(out)
-            out = self.norm3(out)
-
-            if self.with_gcb:
-                out = self.context_block(out)
-
-            if self.downsample is not None:
-                identity = self.downsample(x)
-
-            out += identity
-
-            return out
-
-        if self.with_cp and x.requires_grad:
-            out = cp.checkpoint(_inner_forward, x)
-        else:
-            out = _inner_forward(x)
-
+        out += identity
         out = self.relu(out)
 
         return out
 
 
-def make_res_layer(block,
-                   inplanes,
-                   planes,
-                   blocks,
-                   stride=1,
-                   dilation=1,
-                   style='pytorch',
-                   with_cp=False,
-                   conv_cfg=None,
-                   norm_cfg=dict(type='BN'),
-                   dcn=None,
-                   gcb=None,
-                   gen_attention=None,
-                   gen_attention_blocks=[]):
-    downsample = None
-    if stride != 1 or inplanes != planes * block.expansion:
-        downsample = nn.Sequential(
-            build_conv_layer(
-                conv_cfg,
-                inplanes,
-                planes * block.expansion,
-                kernel_size=1,
-                stride=stride,
-                bias=False),
-            build_norm_layer(norm_cfg, planes * block.expansion)[1],
-        )
+class BaseResNet(nn.Module):
+    def __init__(self, block, layers, in_channels=3,zero_init_residual=False,
+                 groups=1, width_per_group=64, replace_stride_with_dilation=None,
+                 norm_layer=None):
+        super(BaseResNet, self).__init__()
+        if norm_layer is None:
+            norm_layer = nn.BatchNorm2d
+        self._norm_layer = norm_layer
 
-    layers = []
-    layers.append(
-        block(
-            inplanes=inplanes,
-            planes=planes,
-            stride=stride,
-            dilation=dilation,
-            downsample=downsample,
-            style=style,
-            with_cp=with_cp,
-            conv_cfg=conv_cfg,
-            norm_cfg=norm_cfg,
-            dcn=dcn,
-            gcb=gcb,
-            gen_attention=gen_attention if
-            (0 in gen_attention_blocks) else None))
-    inplanes = planes * block.expansion
-    for i in range(1, blocks):
-        layers.append(
-            block(
-                inplanes=inplanes,
-                planes=planes,
-                stride=1,
-                dilation=dilation,
-                style=style,
-                with_cp=with_cp,
-                conv_cfg=conv_cfg,
-                norm_cfg=norm_cfg,
-                dcn=dcn,
-                gcb=gcb,
-                gen_attention=gen_attention if
-                (i in gen_attention_blocks) else None))
+        self.inplanes = 64
+        self.dilation = 1
+        if replace_stride_with_dilation is None:
+            # each element in the tuple indicates if we should replace
+            # the 2x2 stride with a dilated convolution instead
+            replace_stride_with_dilation = [False, False, False]
+        if len(replace_stride_with_dilation) != 3:
+            raise ValueError("replace_stride_with_dilation should be None "
+                             "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
+        self.groups = groups
+        self.base_width = width_per_group
+        self.conv1 = nn.Conv2d(in_channels, self.inplanes, kernel_size=7, stride=2, padding=3,
+                               bias=False)
+        self.bn1 = norm_layer(self.inplanes)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.layer1 = self._make_layer(block, 64, layers[0])
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
+                                       dilate=replace_stride_with_dilation[0])
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
+                                       dilate=replace_stride_with_dilation[1])
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
+                                       dilate=replace_stride_with_dilation[2])
 
-    return nn.Sequential(*layers)
+
+
+    def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
+        norm_layer = self._norm_layer
+        downsample = None
+        previous_dilation = self.dilation
+        if dilate:
+            self.dilation *= stride
+            stride = 1
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            downsample = nn.Sequential(
+                conv1x1(self.inplanes, planes * block.expansion, stride),
+                norm_layer(planes * block.expansion),
+            )
+
+        layers = []
+        layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
+                            self.base_width, previous_dilation, norm_layer))
+        self.inplanes = planes * block.expansion
+        for _ in range(1, blocks):
+            layers.append(block(self.inplanes, planes, groups=self.groups,
+                                base_width=self.base_width, dilation=self.dilation,
+                                norm_layer=norm_layer))
+
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        c2 = self.layer1(x)
+        c3 = self.layer2(c2)
+        c4 = self.layer3(c3)
+        c5 = self.layer4(c4)
+
+        return c2, c3, c4, c5
 
 
 @BACKBONES.register_module
-class ResNet(nn.Module):
-    """ResNet backbone.
+class ResNet(BaseResNet):
+    """
+    ResNet backBone
 
     Args:
         depth (int): Depth of resnet, from {18, 34, 50, 101, 152}.
         in_channels (int): Number of input image channels. Normally 3.
-        num_stages (int): Resnet stages, normally 4.
-        strides (Sequence[int]): Strides of the first block of each stage.
-        dilations (Sequence[int]): Dilation of each stage.
-        out_indices (Sequence[int]): Output from which stages.
-        style (str): `pytorch` or `caffe`. If set to "pytorch", the stride-two
-            layer is the 3x3 conv layer, otherwise the stride-two layer is
-            the first 1x1 conv layer.
-        frozen_stages (int): Stages to be frozen (stop grad and set eval mode).
-            -1 means not freezing any parameters.
-        norm_cfg (dict): dictionary to construct and config norm layer.
-        norm_eval (bool): Whether to set norm layers to eval mode, namely,
-            freeze running stats (mean and var). Note: Effect on Batch Norm
-            and its variants only.
-        with_cp (bool): Use checkpoint or not. Using checkpoint will save some
-            memory while slowing down the training speed.
-        zero_init_residual (bool): whether to use zero init for last norm layer
-            in resblocks to let them behave as identity.
 
-    Example:
-        >>> from texthub.modules.backbones import ResNet
-        >>> import torch
-        >>> self = ResNet(depth=18)
-        >>> self.eval()
-        >>> inputs = torch.rand(1, 3, 32, 32)
-        >>> level_outputs = self.forward(inputs)
-        >>> for level_out in level_outputs:
-        ...     print(tuple(level_out.shape))
-        (1, 64, 8, 8)
-        (1, 128, 4, 4)
-        (1, 256, 2, 2)
-        (1, 512, 1, 1)
     """
+    def __init__(self,depth:int,arch:str,norm="gn",in_channels=3,zero_init_residual=False,
+                 groups=1, width_per_group=64, replace_stride_with_dilation=None,
+                ):
+        assert depth in (18,34,50,101,152)
+        assert arch in ('resnet18','resnet34','resnet50','resnet101','resnet152','resnext50_32x4d','resnext101_32x8d')
 
-    arch_settings = {
-        18: (BasicBlock, (2, 2, 2, 2)),
-        34: (BasicBlock, (3, 4, 6, 3)),
-        50: (Bottleneck, (3, 4, 6, 3)),
-        101: (Bottleneck, (3, 4, 23, 3)),
-        152: (Bottleneck, (3, 8, 36, 3))
-    }
+        arch_settings = {
+            18: (BasicBlock, (2, 2, 2, 2)),
+            34: (BasicBlock, (3, 4, 6, 3)),
+            50: (Bottleneck, (3, 4, 6, 3)),
+            101: (Bottleneck, (3, 4, 23, 3)),
+            152: (Bottleneck, (3, 8, 36, 3))
+        }
 
-    def __init__(self,
-                 depth,
-                 in_channels=3,
-                 num_stages=4,
-                 strides=(1, 2, 2, 2),
-                 dilations=(1, 1, 1, 1),
-                 out_indices=(0, 1, 2, 3),
-                 style='pytorch',
-                 frozen_stages=-1,
-                 conv_cfg=None,
-                 norm_cfg=dict(type='BN', requires_grad=True),
-                 norm_eval=True,
-                 dcn=None,
-                 stage_with_dcn=(False, False, False, False),
-                 gcb=None,
-                 stage_with_gcb=(False, False, False, False),
-                 gen_attention=None,
-                 stage_with_gen_attention=((), (), (), ()),
-                 with_cp=False,
-                 zero_init_residual=True):
-        super(ResNet, self).__init__()
-        if depth not in self.arch_settings:
-            raise KeyError('invalid depth {} for resnet'.format(depth))
-        self.depth = depth
-        self.num_stages = num_stages
-        assert num_stages >= 1 and num_stages <= 4
-        self.strides = strides
-        self.dilations = dilations
-        assert len(strides) == len(dilations) == num_stages
-        self.out_indices = out_indices
-        assert max(out_indices) < num_stages
-        self.style = style
-        self.frozen_stages = frozen_stages
-        self.conv_cfg = conv_cfg
-        self.norm_cfg = norm_cfg
-        self.with_cp = with_cp
-        self.norm_eval = norm_eval
-        self.dcn = dcn
-        self.stage_with_dcn = stage_with_dcn
-        if dcn is not None:
-            assert len(stage_with_dcn) == num_stages
-        self.gen_attention = gen_attention
-        self.gcb = gcb
-        self.stage_with_gcb = stage_with_gcb
-        if gcb is not None:
-            assert len(stage_with_gcb) == num_stages
-        self.zero_init_residual = zero_init_residual
-        self.block, stage_blocks = self.arch_settings[depth]
-        self.stage_blocks = stage_blocks[:num_stages]
-        self.inplanes = 64
+        self.arch_str = arch
+        norm_setting = {
+            "bn":nn.BatchNorm2d,
+            "gn":gnnorm2d
+        }
+        block,layers = arch_settings.get(depth)
+        """
+        self, block, layers, in_channels=3,zero_init_residual=False,
+                 groups=1, width_per_group=64, replace_stride_with_dilation=None,
+                 norm_layer=None
+        """
+        kwargs = {
+            "norm_layer":norm_setting.get(norm),
+            "in_channels":in_channels,
+            "zero_init_residual":zero_init_residual,
+            "groups":groups,
+            "width_per_group":width_per_group,
+            "replace_stride_with_dilation":replace_stride_with_dilation
+        }
+        super(ResNet, self).__init__(block, layers, **kwargs)
 
-        self._make_stem_layer(in_channels)
 
-        self.res_layers = []
-        for i, num_blocks in enumerate(self.stage_blocks):
-            stride = strides[i]
-            dilation = dilations[i]
-            dcn = self.dcn if self.stage_with_dcn[i] else None
-            gcb = self.gcb if self.stage_with_gcb[i] else None
-            planes = 64 * 2**i
-            res_layer = make_res_layer(
-                self.block,
-                self.inplanes,
-                planes,
-                num_blocks,
-                stride=stride,
-                dilation=dilation,
-                style=self.style,
-                with_cp=with_cp,
-                conv_cfg=conv_cfg,
-                norm_cfg=norm_cfg,
-                dcn=dcn,
-                gcb=gcb,
-                gen_attention=gen_attention,
-                gen_attention_blocks=stage_with_gen_attention[i])
-            self.inplanes = planes * self.block.expansion
-            layer_name = 'layer{}'.format(i + 1)
-            self.add_module(layer_name, res_layer)
-            self.res_layers.append(layer_name)
-
-        self._freeze_stages()
-
-        self.feat_dim = self.block.expansion * 64 * 2**(
-            len(self.stage_blocks) - 1)
-
-    @property
-    def norm1(self):
-        return getattr(self, self.norm1_name)
-
-    def _make_stem_layer(self, in_channels):
-        self.conv1 = build_conv_layer(
-            self.conv_cfg,
-            in_channels,
-            64,
-            kernel_size=7,
-            stride=2,
-            padding=3,
-            bias=False)
-        self.norm1_name, norm1 = build_norm_layer(self.norm_cfg, 64, postfix=1)
-        self.add_module(self.norm1_name, norm1)
-        self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-
-    def _freeze_stages(self):
-        if self.frozen_stages >= 0:
-            self.norm1.eval()
-            for m in [self.conv1, self.norm1]:
-                for param in m.parameters():
-                    param.requires_grad = False
-
-        for i in range(1, self.frozen_stages + 1):
-            m = getattr(self, 'layer{}'.format(i))
-            m.eval()
-            for param in m.parameters():
-                param.requires_grad = False
-
-    def init_weights(self, pretrained=None):
-        if isinstance(pretrained, str):
-            logger = get_root_logger()
-            load_checkpoint(self, pretrained, strict=False, logger=logger)
-        elif pretrained is None:
-            for m in self.modules():
-                if isinstance(m, nn.Conv2d):
-                    kaiming_init(m)
-                elif isinstance(m, (_BatchNorm, nn.GroupNorm)):
-                    constant_init(m, 1)
-
-            if self.dcn is not None:
+        def init_weights(pretrained=None):
+            if pretrained is None:
                 for m in self.modules():
-                    if isinstance(m, Bottleneck) and hasattr(
-                            m, 'conv2_offset'):
-                        constant_init(m.conv2_offset, 0)
+                    if isinstance(m, nn.Conv2d):
+                        nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                    elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                        nn.init.constant_(m.weight, 1)
+                        nn.init.constant_(m.bias, 0)
+            else:
+                state_dict = load_state_dict_from_url(model_urls[self.arch_str],
+                                                      )
+                self.load_state_dict(state_dict, strict=False)
 
-            if self.zero_init_residual:
-                for m in self.modules():
-                    if isinstance(m, Bottleneck):
-                        constant_init(m.norm3, 0)
-                    elif isinstance(m, BasicBlock):
-                        constant_init(m.norm2, 0)
-        else:
-            raise TypeError('pretrained must be a str or None')
 
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.norm1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
-        outs = []
-        for i, layer_name in enumerate(self.res_layers):
-            res_layer = getattr(self, layer_name)
-            x = res_layer(x)
-            if i in self.out_indices:
-                outs.append(x)
-        return tuple(outs)
 
-    def train(self, mode=True):
-        super(ResNet, self).train(mode)
-        self._freeze_stages()
-        if mode and self.norm_eval:
-            for m in self.modules():
-                # trick: eval have effect on BatchNorm only
-                if isinstance(m, _BatchNorm):
-                    m.eval()
+def _resnet(arch, block, layers, pretrained, progress, **kwargs):
+    model = BaseResNet(block, layers, **kwargs)
+    if pretrained:
+        state_dict = load_state_dict_from_url(model_urls[arch],
+                                              progress=progress)
+        model.load_state_dict(state_dict, strict=False)
+        print('load pretrained models from imagenet')
+    return model
+
+
+def resnet18(pretrained=False, progress=True, **kwargs):
+    """Constructs a ResNet-18 model.
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress,
+                   **kwargs)
+
+
+def resnet34(pretrained=False, progress=True, **kwargs):
+    """Constructs a ResNet-34 model.
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _resnet('resnet34', BasicBlock, [3, 4, 6, 3], pretrained, progress,
+                   **kwargs)
+
+
+def resnet50(pretrained=False, progress=True, **kwargs):
+    """Constructs a ResNet-50 model.
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _resnet('resnet50', Bottleneck, [3, 4, 6, 3], pretrained, progress,
+                   **kwargs)
+
+
+def resnet101(pretrained=False, progress=True, **kwargs):
+    """Constructs a ResNet-101 model.
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _resnet('resnet101', Bottleneck, [3, 4, 23, 3], pretrained, progress,
+                   **kwargs)
+
+
+def resnet152(pretrained=False, progress=True, **kwargs):
+    """Constructs a ResNet-152 model.
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _resnet('resnet152', Bottleneck, [3, 8, 36, 3], pretrained, progress,
+                   **kwargs)
+
+
+def resnext50_32x4d(pretrained=False, progress=True, **kwargs):
+    """Constructs a ResNeXt-50 32x4d model.
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    kwargs['groups'] = 32
+    kwargs['width_per_group'] = 4
+    return _resnet('resnext50_32x4d', Bottleneck, [3, 4, 6, 3],
+                   pretrained, progress, **kwargs)
+
+
+def resnext101_32x8d(pretrained=False, progress=True, **kwargs):
+    """Constructs a ResNeXt-101 32x8d model.
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    kwargs['groups'] = 32
+    kwargs['width_per_group'] = 8
+    return _resnet('resnext101_32x8d', Bottleneck, [3, 4, 23, 3],
+                   pretrained, progress, **kwargs)
+

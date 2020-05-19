@@ -15,13 +15,13 @@ class Collect(object):
 
     def __call__(self, results):
         data = {}
-        img_meta = {}
-        for key in self.meta_keys:
-            if key not in results.keys():
-                results[key]=None
-                continue
-            img_meta[key] = results[key]
-        data["img_meta"] = img_meta
+        # img_meta = {}
+        # for key in self.meta_keys:
+        #     if key not in results.keys():
+        #         results[key]=None
+        #         continue
+        #     img_meta[key] = results[key]
+        # data["img_meta"] = img_meta
         for key in self.keys:
             data[key] = results[key]
         return data

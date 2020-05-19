@@ -7,7 +7,40 @@ from ..core.optimizer import build_optimizer
 from ..core.train.Hooks import RecoEvalHook,DistSamplerSeedHook,DistRecoEvalHook,DistOptimizerHook
 from torch.utils.data.distributed import DistributedSampler
 from ..utils.dist_utils import get_dist_info
-from .process import recogition_batch_processor
+from .batchprocess import recogition_batch_processor,detect_batch_processor
+
+
+def train_detector(model,
+                   dataset,
+                   cfg,
+                   distributed=True,
+                   validate=False,
+                   timestamp=None,
+                   meta=None):
+    logger = get_root_logger(cfg.log_level)
+    batch_processor = detect_batch_processor
+    # start training
+    if distributed:
+        _dist_train(
+            model,
+            dataset,
+            cfg,
+            batch_processor=batch_processor,
+            validate=validate,
+            logger=logger,
+            timestamp=timestamp,
+            meta=meta)
+    else:
+        _non_dist_train(
+            model,
+            dataset,
+            cfg,
+            batch_processor = batch_processor,
+            validate=validate,
+            logger=logger,
+            timestamp=timestamp,
+            meta=meta)
+
 
 def train_recoginizer(model,
                    dataset,
@@ -39,14 +72,6 @@ def train_recoginizer(model,
             logger=logger,
             timestamp=timestamp,
             meta=meta)
-
-
-def detect_bact_processor(model,data,train_mode=True):
-    #TODO:text detect
-    pass
-
-
-
 
 
 def _dist_train(model,
