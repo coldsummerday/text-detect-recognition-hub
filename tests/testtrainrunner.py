@@ -5,6 +5,7 @@ import torch
 
 from texthub.datasets import build_dataset
 
+
 config_file = "./configs/testdatasetconfig.py"
 cfg = Config.fromfile(config_file)
 train_dataset = build_dataset(cfg.data.train)

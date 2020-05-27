@@ -5,7 +5,7 @@ import cv2
 config_file = "./configs/testpandetect.py"
 cfg = Config.fromfile(config_file)
 ##
-dataset = build_dataset(cfg.data.train)
+dataset = build_dataset(cfg.data.test)
 b=dataset[0]
 
 def show_pic(img, bboxes=None, name='pic'):
@@ -34,6 +34,6 @@ import torch
 b=torch.utils.data.DataLoader(
             dataset,
             batch_size=4,
-            pin_memory=True
+            pin_memory=True,
         )
 b.__iter__().__next__()

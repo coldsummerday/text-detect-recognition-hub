@@ -11,5 +11,6 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = init_recognizer(config_file,checkpoint,device)
 
 
-img = "./testimgs/3.jpeg"
+img = "./testimgs/6.jpeg"
+
 print(inference_recognizer(model,img))

@@ -14,6 +14,7 @@ import cv2
 import numbers
 import pyclipper
 
+import Polygon as plg
 @PIPELINES.register_module
 class ResizeRecognitionImage(object):
     """
@@ -74,6 +75,23 @@ class Ndarray2tensor(object):
         assert type(data.get("img"))==np.ndarray
         data['img'] = self.transforms(Image.fromarray(data['img']))
         return data
+
+@PIPELINES.register_module
+class Gt2SameDim(object):
+    def __init__(self,max_label_num=150):
+        self.max_label_num = max_label_num
+
+    def __call__(self,data:dict):
+        assert type(data.get("gt_polys"))==np.ndarray
+        gt=np.zeros((self.max_label_num,4,2))
+        gt_polys_array = data.get("gt_polys")
+        length = len(gt_polys_array)
+        gt[:length] = gt_polys_array
+        data['gt_polys'] = gt
+        return data
+
+
+
 
 @PIPELINES.register_module
 class GenerateTrainMask(object):

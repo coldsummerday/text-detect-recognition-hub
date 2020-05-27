@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 import itertools
 from ..registry import HEADS
+import Polygon as plg
 
 @HEADS.register_module
 class PanHead(nn.Module):
@@ -42,7 +43,15 @@ class PanHead(nn.Module):
             return data['img']
 
     def postprocess(self,preds):
-        return decode(preds)
+        """
+
+        :param preds:
+        :return:返回list[Polygon.Polygon]方便语义分割
+        """
+        results = []
+        for i in range(preds.shape[0]):
+            results.append(decode_ploy(preds[i]))
+        return results
 
     def init_weights(self, pretrained=None):
         pass
@@ -240,6 +249,101 @@ class PANLoss(nn.Module):
 
 
 
+def decode_ploy(preds, scale=1, threshold=0.7311, min_area=5):
+    """
+        在输出上使用sigmoid 将值转换为置信度，并使用阈值来进行文字和背景的区分
+        :param preds: 网络输出
+        :param scale: 网络的scale
+        :param threshold: sigmoid的阈值
+        :return: 文本框的ploy
+    """
+    preds[:2, :, :] = torch.sigmoid(preds[:2, :, :])
+    preds = preds.detach().cpu().numpy()
+    score = preds[0].astype(np.float32)
+    text = preds[0] > threshold  # text
+    kernel = (preds[1] > threshold) * text  # kernel
+    similarity_vectors = preds[2:].transpose((1, 2, 0))
+
+    label_num, label = cv2.connectedComponents(kernel.astype(np.uint8), connectivity=4)
+    label_values = []
+    label_sum = get_num(label, label_num)
+    for label_idx in range(1, label_num):
+        if label_sum[label_idx] < min_area:
+            continue
+        label_values.append(label_idx)
+
+    pred = pse_cpp(text.astype(np.uint8), similarity_vectors, label, label_num, 0.8)
+    pred = pred.reshape(text.shape)
+
+    label_points = get_points(pred, score, label_num)
+    result_ploys = []
+    for label_value, label_point in label_points.items():
+        if label_value not in label_values:
+            continue
+        score_i = label_point[0]
+        label_point = label_point[2:]
+        points = np.array(label_point, dtype=int).reshape(-1, 2)
+
+        if points.shape[0] < 100 / (scale * scale):
+            continue
+
+        if score_i < 0.93:
+            continue
+        result_ploys.append(plg.Polygon(points))
+    return result_ploys
+    #     rect = cv2.minAreaRect(points)
+    #     bbox = cv2.boxPoints(rect)
+    #     bbox_list.append([bbox[1], bbox[2], bbox[3], bbox[0]])
+    # # preds是返回的mask
+    # return pred, np.array(bbox_list)
+
+def decode_bbox(preds, scale=1, threshold=0.7311, min_area=5):
+    """
+    在输出上使用sigmoid 将值转换为置信度，并使用阈值来进行文字和背景的区分
+    :param preds: 网络输出
+    :param scale: 网络的scale
+    :param threshold: sigmoid的阈值
+    :return: 最后的输出图和文本框
+    """
+    preds[:2, :, :] = torch.sigmoid(preds[:2, :, :])
+    preds = preds.detach().cpu().numpy()
+    score = preds[0].astype(np.float32)
+    text = preds[0] > threshold  # text
+    kernel = (preds[1] > threshold) * text  # kernel
+    similarity_vectors = preds[2:].transpose((1, 2, 0))
+
+    label_num, label = cv2.connectedComponents(kernel.astype(np.uint8), connectivity=4)
+    label_values = []
+    label_sum = get_num(label, label_num)
+    for label_idx in range(1, label_num):
+        if label_sum[label_idx] < min_area:
+            continue
+        label_values.append(label_idx)
+
+    pred = pse_cpp(text.astype(np.uint8), similarity_vectors, label, label_num, 0.8)
+    pred = pred.reshape(text.shape)
+
+    bbox_list = []
+    label_points = get_points(pred, score, label_num)
+
+    for label_value, label_point in label_points.items():
+        if label_value not in label_values:
+            continue
+        score_i = label_point[0]
+        label_point = label_point[2:]
+        points = np.array(label_point, dtype=int).reshape(-1, 2)
+
+        if points.shape[0] < 100 / (scale * scale):
+            continue
+
+        if score_i < 0.93:
+            continue
+        rect = cv2.minAreaRect(points)
+        bbox = cv2.boxPoints(rect)
+        bbox_list.append([bbox[1], bbox[2], bbox[3], bbox[0]])
+    # preds是返回的mask
+    return np.array(bbox_list)
+
 
 
 def decode(preds, scale=1, threshold=0.7311, min_area=5):
@@ -270,6 +374,7 @@ def decode(preds, scale=1, threshold=0.7311, min_area=5):
 
     bbox_list = []
     label_points = get_points(pred, score, label_num)
+
     for label_value, label_point in label_points.items():
         if label_value not in label_values:
             continue

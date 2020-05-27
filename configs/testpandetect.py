@@ -27,8 +27,8 @@ model = dict(
 train_cfg = dict()
 test_cfg = dict()
 dataset_type = 'IcdarDetectDataset'
-data_root = '/Users/zhouhaibin/data/receipt_2nd_icdr15/'
-#data_root = '/data/zhb/data/receipt/end2end/receipt_2nd_icdr15/'
+#data_root = '/Users/zhouhaibin/data/receipt_2nd_icdr15/'
+data_root = '/data/zhb/data/receipt/end2end/receipt_2nd_icdr15/'
 
 train_pipeline = [
     dict(type="CheckPolys"),
@@ -37,22 +37,30 @@ train_pipeline = [
     dict(type="RandomRotate",degrees=10),
     dict(type="GenerateTrainMask"),
     dict(type="Ndarray2tensor"),
-    dict(type='Collect', keys=['img', 'labels',"training_mask"]),
+    dict(type='Collect', keys=['img','labels',"training_mask"]),
 ]
 
+test_pipeline = [
+    dict(type="DetectResize",img_scale=(640,640)),
+    dict(type="Ndarray2tensor"),
+    dict(type="Gt2SameDim",max_label_num = 150),
+    dict(type='Collect', keys=['img',"gt_polys"]),
+]
+
+
 data = dict(
-    imgs_per_gpu=1,
-    workers_per_gpu=1,
+    imgs_per_gpu=4,
+    workers_per_gpu=2,
     train=dict(
         type=dataset_type,
         root=data_root,
         pipeline = train_pipeline,
         img_channel=3,
         ),
-    val=dict(
+    test=dict(
         type=dataset_type,
         root=data_root,
-        pipeline = train_pipeline,
+        pipeline = test_pipeline,
         )
 )
 
@@ -69,10 +77,10 @@ lr_config = dict(
     warmup_iters=500,
     warmup_ratio=1.0 / 3,
     step=[16, 22])
-checkpoint_config = dict(interval=1)
+checkpoint_config = dict(interval=2)
 # yapf:disable
 log_config = dict(
-    interval=1,
+    interval=100,
     hooks=[
         dict(type='TextLoggerHook'),
         # dict(type='TensorboardLoggerHook')
@@ -84,4 +92,4 @@ log_level = 'INFO'
 work_dir = './work_dirs/pan/'
 load_from = None
 resume_from = None
-workflow = [('train', 1),('val',1)]
+workflow = [('train', 1)]
