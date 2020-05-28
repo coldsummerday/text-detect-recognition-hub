@@ -101,7 +101,6 @@ def inference_detector(model,img:str):
     # forward the model
     with torch.no_grad():
         preds = model(data_dict,return_loss=False)
-    print(preds.shape)
 
     bbox_lists = model.postprocess(preds)
     return bbox_lists

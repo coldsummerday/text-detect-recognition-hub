@@ -3,6 +3,7 @@ import os
 import sys
 import cv2
 import numpy as np
+import Polygon as plg
 this_path = os.path.split(os.path.realpath(__file__))[0]
 sys.path.append(osp.join(this_path,'../'))
 from texthub.apis import init_detector,inference_detector
@@ -23,6 +24,11 @@ for j in plogs:
         xmin,xmax,ymin,ymax = i.boundingBox()
         xmin,xmax,ymin,ymax = int(xmin),int(xmax),int(ymin),int(ymax)
         cv2.rectangle(img,(xmin,ymin),(xmax,ymax),(255,0,0),2)
+
+
+
+
+
 
 cv2.imshow("s",img)
 cv2.waitKey()

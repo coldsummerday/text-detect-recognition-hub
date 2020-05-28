@@ -62,6 +62,7 @@ class PanHead(nn.Module):
 
 
 
+
 class PANLoss(nn.Module):
     def __init__(self, alpha=0.5, beta=0.25, delta_agg=0.5, delta_dis=3, ohem_ratio=3, reduction='mean'):
         """
@@ -276,7 +277,7 @@ def decode_ploy(preds, scale=1, threshold=0.7311, min_area=5):
     pred = pred.reshape(text.shape)
 
     label_points = get_points(pred, score, label_num)
-    result_ploys = []
+    result = []
     for label_value, label_point in label_points.items():
         if label_value not in label_values:
             continue
@@ -289,13 +290,31 @@ def decode_ploy(preds, scale=1, threshold=0.7311, min_area=5):
 
         if score_i < 0.93:
             continue
-        result_ploys.append(plg.Polygon(points))
-    return result_ploys
+        points = mask_points_to_contours_points(points)
+        result.append(plg.Polygon(points))
+    return result
     #     rect = cv2.minAreaRect(points)
     #     bbox = cv2.boxPoints(rect)
     #     bbox_list.append([bbox[1], bbox[2], bbox[3], bbox[0]])
     # # preds是返回的mask
     # return pred, np.array(bbox_list)
+
+def mask_points_to_contours_points(points):
+    max_value = np.max(points)
+    mask = np.zeros((max_value + 1, max_value + 1), dtype='uint8')
+    putPoints(mask, points)
+    # (16,325)的点,如果不转置的话会变(325,16) 原因cv2图的存储方式不是w,h,而是 h,w
+    contours, hierarchy = cv2.findContours(mask.T, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    points = contours[0].reshape(-1, 2)
+    return points
+
+def putPoints(mask, points):
+    ##不能直接mask[points]=1 ,会导致整行整列都为1
+    for point in points:
+        x, y = point
+        mask[x, y] = 1
+
+
 
 def decode_bbox(preds, scale=1, threshold=0.7311, min_area=5):
     """
