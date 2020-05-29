@@ -33,8 +33,8 @@ train_cfg = dict()
 test_cfg = dict()
 dataset_type = 'LmdbDataset'
 data_root = '/data/zhb/data/receipt/TextRecognition/3rd_lmdb_recognition_benchmark_data/train_lmdb_benchmark/'
-val_data_root = '/data/zhb/data/receipt/TextRecognition/3rd_lmdb_recognition_benchmark_data/for_valid/test_lmdb_benchmark/'
-
+#val_data_root = '/data/zhb/data/receipt/TextRecognition/3rd_lmdb_recognition_benchmark_data/for_valid/test_lmdb_benchmark/'
+val_data_root = "/Users/zhouhaibin/data/for_valid/test_lmdb_benchmark/"
 train_pipeline = [
     dict(type='ResizeRecognitionImage', img_scale=(32,100)),
     dict(type='NormalizePADToTensor', max_size=(1,32,100),PAD_type="right"),
@@ -49,7 +49,7 @@ val_pipeline = [
 test_pipeline = [
     dict(type='ResizeRecognitionImage', img_scale=(32, 100)),
     dict(type='NormalizePADToTensor', max_size=(1, 32, 100), PAD_type="right"),
-    dict(type='Collect', keys=['img']),
+    dict(type='Collect', keys=['img',"label"]),
 ]
 
 ##128每张显存 2613MiB,256:5207MiB
@@ -63,6 +63,12 @@ data = dict(
         charsets="ChineseCharset",
         ),
     val=dict(
+        type=dataset_type,
+        root=val_data_root,
+        pipeline = val_pipeline,
+        charsets="ChineseCharset",
+        ),
+    test=dict(
         type=dataset_type,
         root=val_data_root,
         pipeline = val_pipeline,
