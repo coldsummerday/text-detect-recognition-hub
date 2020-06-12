@@ -148,10 +148,10 @@ def inference_recognizer(model,img:str):
     data = dict(img=img)
     data = test_pipeline(data)
     img_tensor = data['img'].unsqueeze(0).to(device)
+    data["img"] = img_tensor
     # forward the model
     with torch.no_grad():
-        preds = model(img_tensor=img_tensor, extra_data=None,
-                                           return_loss=False)
+        preds = model(data,return_loss=False)
     return preds[0]
 
 

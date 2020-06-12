@@ -22,32 +22,30 @@ def recogition_batch_processor(model, data, train_mode=True):
     """
 
     if train_mode:
-        img_tensor = data["img"]
-        labels = data["label"]
+
         #判断模型是运行在cpu上还是GPU上
         if hasattr(model,"module"):
             if next(model.module.parameters()).is_cuda:
-                img_tensor = img_tensor.cuda()
-                labels = labels.cuda()
+                data = batch_dict_data_tocuda(data)
+
         else:
             if next(model.parameters()).is_cuda:
-                img_tensor = img_tensor.cuda()
-                labels = labels.cuda()
-        losses=model(img_tensor, labels, return_loss=True)
+                data = batch_dict_data_tocuda(data)
+        losses=model(data, return_loss=True)
         loss, log_vars = parse_losses(losses)
 
         outputs = dict(
             loss=loss, log_vars=log_vars, num_samples=len(data['img'].data))
         return outputs
     else:
-        img_tensor = data["img"]
+
         if hasattr(model,"module"):
             if next(model.module.parameters()).is_cuda:
-                img_tensor = img_tensor.cuda()
+                data = batch_dict_data_tocuda(data)
         else:
             if next(model.parameters()).is_cuda:
-                img_tensor = img_tensor.cuda()
-        preds_str = model(img_tensor, None, return_loss=False)
+                data = batch_dict_data_tocuda(data)
+        preds_str = model(data, return_loss=False)
         return dict(
             preds_str=preds_str
         )

@@ -3,6 +3,8 @@ from .base import  BaseRecognizer
 from ..registry import RECOGNIZERS
 from ..builder import build_backbone,build_img_trans,build_sequence,build_head
 
+
+
 @RECOGNIZERS.register_module
 class FourStageModel(BaseRecognizer):
     """
@@ -55,34 +57,42 @@ class FourStageModel(BaseRecognizer):
         return contextual_feature
 
     def forward_train(self,
+                      data:dict,
                       img,
                       extra_data,
                       **kwargs):
+        img = data.get("img")
         x = self.extract_feat(img)
-        outs = self.label_head(x,extra_data,return_loss=True)
+        data['img'] = x
+        outs = self.label_head(data,return_loss=True)
         loss_inputs = outs
         losses = self.label_head.loss(*loss_inputs)
         ##在runner中loss 回传
         return losses
 
-    def forward_test(self,img_tensor,extra_data,**kwargs):
-        x = self.extract_feat(img_tensor)
-        outs = self.label_head(x,extra_data=None,return_loss=False)
+    def forward_test(self,data:dict,**kwargs):
+        img = data.get("img")
+        x = self.extract_feat(img)
+        data['img'] = x
+        outs = self.label_head(data,return_loss=False)
         return outs
 
 
+    def postprocess(self,data):
+        return self.label_head.postprocess(data)
 
 
-    def forward(self, img_tensor, extra_data, return_loss=True, **kwargs):
+
+    def forward(self, data, return_loss=True, **kwargs):
         """
         in the text recognition ,the extra_data is the label
         """
         outputs =None
         if return_loss:
-            outputs = self.forward_train(img_tensor, extra_data, **kwargs)
+            outputs = self.forward_train(data, **kwargs)
 
         else:
-            outputs =  self.forward_test(img_tensor, extra_data, **kwargs)
+            outputs =  self.forward_test(data, **kwargs)
 
         return  outputs
 

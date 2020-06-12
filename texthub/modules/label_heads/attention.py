@@ -23,20 +23,24 @@ class AttentionHead(nn.Module):
         self.generator = nn.Linear(hidden_size, num_classes)
         self.loss_func = torch.nn.CrossEntropyLoss(ignore_index=0) # ignore [GO] token = ignore index 0
 
-    def forward(self,img_tensor,extra_data,return_loss,batch_max_length=25,**kwargs):
+    def forward(self,data:dict,return_loss,**kwargs):
         if return_loss:
-            return self.forward_train(img_tensor,extra_data)
+            return self.forward_train(data)
         else:
-            return self.forward_test(img_tensor,extra_data)
+            return self.forward_test(data)
+
+    def postprocess(self,data):
+        return data
 
 
     def loss(self,probs,target):
         loss_recog = self.loss_func(probs.view(-1, probs.shape[-1]), target.contiguous().view(-1))
         return dict(loss_recog=loss_recog)
 
-    def forward_train(self,img_tensor,extra_data,batch_max_length=25,**kwargs):
+    def forward_train(self,data:dict,batch_max_length=25,**kwargs):
+        img_tensor = data.get("img")
         device = img_tensor.device
-        text = extra_data
+        text = data["label"]
         target = text[:,1:] # without [GO] Symbol
         text = text[:,:-1]# align with Attention.forward
 
@@ -57,16 +61,16 @@ class AttentionHead(nn.Module):
         probs = self.generator(output_hiddens)
         return probs,target
 
-    def forward_test(self,img_tensor,extra_data,batch_max_length=25,**kwargs):
+    def forward_test(self,data:dict,batch_max_length=25,**kwargs):
 
         """
         在DataParallel 中,返回值有可能是map对象,需要单独处理
-        :param img_tensor:
-        :param extra_data:
+
         :param batch_max_length:
         :param kwargs:
         :return:
         """
+        img_tensor = data.get("img")
         batch_size = img_tensor.size(0)
         device = img_tensor.device
         num_steps = batch_max_length + 1  # +1 for [s] at end of sentence.
@@ -98,6 +102,8 @@ class AttentionHead(nn.Module):
         one_hot = torch.FloatTensor(batch_size, onehot_dim).zero_().to(device)
         one_hot = one_hot.scatter_(1, input_char, 1)
         return one_hot
+
+
 
 
 

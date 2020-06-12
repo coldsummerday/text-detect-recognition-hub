@@ -12,7 +12,11 @@ class BaseRecognizer(nn.Module,metaclass=ABCMeta):
             print_log('load model from: {}'.format(pretrained), logger='root')
 
     @abstractmethod
-    def extract_feat(self, img_tensors):
+    def extract_feat(self, data):
+        pass
+
+    @abstractmethod
+    def postprocess(self,data):
         pass
 
     @abstractmethod

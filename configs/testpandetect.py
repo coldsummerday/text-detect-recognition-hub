@@ -24,12 +24,14 @@ model = dict(
         reduction='mean'
     )
 )
+
 train_cfg = dict()
 test_cfg = dict()
 dataset_type = 'IcdarDetectDataset'
-data_root = '/Users/zhouhaibin/data/receipt_2nd_icdr15/'
-#data_root = '/data/zhb/data/receipt/end2end/receipt_2nd_icdr15/'
-
+#data_root = '/Users/zhouhaibin/data/receipt_2nd_icdr15/'
+data_root = '/data/zhb/data/receipt/end2end/receipt_2nd_icdr15/'
+val_data_root = '/data/zhb/data/receipt/end2end/receipt_2nd_icdr15val/'
+#val_data_root = '/Users/zhouhaibin/data/receipt_2nd_icdr15val/'
 train_pipeline = [
     dict(type="CheckPolys"),
     dict(type="DetectResize",img_scale=(640,640)),
@@ -48,7 +50,7 @@ test_pipeline = [
 val_pipeline = [
     dict(type="DetectResize",img_scale=(640,640)),
     dict(type="Ndarray2tensor"),
-    dict(type="Gt2SameDim",max_label_num = 150),
+    dict(type="Gt2SameDim",max_label_num = 250),
     dict(type='Collect', keys=['img',"gt_polys"]),
 ]
 
@@ -64,13 +66,13 @@ data = dict(
         ),
     val = dict(
         type=dataset_type,
-        root=data_root,
+        root=val_data_root,
         pipeline = val_pipeline,
         img_channel=3,
         ),
     test=dict(
         type=dataset_type,
-        root=data_root,
+        root=val_data_root,
         pipeline = test_pipeline,
         )
 )

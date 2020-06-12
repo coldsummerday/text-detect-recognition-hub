@@ -10,7 +10,5 @@ checkpoint = "./work_dirs/tps_vgg_lstm_attention/FourStageModel_epoch_300.pth"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = init_recognizer(config_file,checkpoint,device)
 
-
 img = "./testimgs/6.jpeg"
-
 print(inference_recognizer(model,img))

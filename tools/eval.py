@@ -18,7 +18,10 @@ from texthub.modules import build_recognizer,build_detector
 from texthub.core.utils.checkpoint import load_checkpoint
 from texthub.core.evaluation import eval_poly_detect,eval_text
 def model_inference(model,data_loader,get_gt_func)->([],[]):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if hasattr(model,"module"):
+        device = next(model.module.parameters()).device
+    else:
+        device = next(model.parameters()).device
     model.eval()
     dataset = data_loader.dataset
     results = []
@@ -27,7 +30,7 @@ def model_inference(model,data_loader,get_gt_func)->([],[]):
     for i, data in enumerate(data_loader):
         data['img'] = data['img'].to(device)
         with torch.no_grad():
-            result = model(data,return_loss=False)
+            result = model(data=data,return_loss=False)
         if type(model) == DataParallel or type(model) == DistributedDataParallel:
             result = model.module.postprocess(result)
         else:
@@ -50,11 +53,7 @@ def parse_args():
         choices=['detect', 'reco'],
         default='detect',
         help='model type')
-    parser.add_argument(
-        '--gpus',
-        type=int,
-        default=2,
-        help='number of gpus to use ')
+
     args = parser.parse_args()
     return args
 
@@ -70,16 +69,13 @@ def main():
 
     dataset = build_dataset(cfg.data.val)
 
-    if args.gpus !=0:
-        batch_size = args.gpus * cfg.data.imgs_per_gpu
-        num_workers = args.gpus * cfg.data.workers_per_gpu
-    else:
-        batch_size = cfg.data.imgs_per_gpu
-        num_workers = cfg.data.workers_per_gpu
+
+    batch_size = cfg.data.imgs_per_gpu
+    num_workers = cfg.data.workers_per_gpu
     data_loader =torch.utils.data.DataLoader(
             dataset,
             batch_size=batch_size,
-            num_workers=0,
+            num_workers=num_workers,
             pin_memory=True
         )
 
@@ -93,11 +89,14 @@ def main():
 
     load_checkpoint(model, args.checkpoint, map_location='cpu')
 
-    if torch.cuda.is_available() and args.gpus > 1:
-        model = DataParallel(model,device_ids=torch.cuda.current_device())
-    else:
-        if torch.cuda.is_available():
-            model = model.cuda()
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model =model.to(device)
+    # 单卡好像有bug
+    # if torch.cuda.is_available() and args.gpus > 1:
+    #     model = DataParallel(model,device_ids=range(args.gpus)).cuda()
+    # else:
+    #     if torch.cuda.is_available():
+    #         model = model.cuda()
 
     if args.eval == "detect":
         preds,gts = model_inference(model,data_loader,get_gt_func=detect_gt_func)
