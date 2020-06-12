@@ -58,8 +58,6 @@ class FourStageModel(BaseRecognizer):
 
     def forward_train(self,
                       data:dict,
-                      img,
-                      extra_data,
                       **kwargs):
         img = data.get("img")
         x = self.extract_feat(img)

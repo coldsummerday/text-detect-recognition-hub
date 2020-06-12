@@ -32,7 +32,7 @@ cudnn_benchmark = True
 train_cfg = dict()
 test_cfg = dict()
 dataset_type = 'LmdbDataset'
-data_root = '/data/zhb/data/receipt/TextRecognition/3rd_lmdb_recognition_benchmark_data/train_lmdb_benchmark/'
+data_root = '/data/zhb/data/receipt/TextRecognition/icdar2lmdb/'
 val_data_root = '/data/zhb/data/receipt/TextRecognition/3rd_lmdb_recognition_benchmark_data/for_valid/test_lmdb_benchmark/'
 #val_data_root = "/Users/zhouhaibin/data/for_valid/test_lmdb_benchmark/"
 train_pipeline = [
@@ -99,7 +99,7 @@ log_config = dict(
 # runtime settings
 total_iters = 300000
 log_level = 'INFO'
-work_dir = './work_dirs/tps_vgg_lstm_attention/'
+work_dir = './work_dirs/tps_vgg_lstm_attention_3rdicdar/'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]

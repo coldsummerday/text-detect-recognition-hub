@@ -23,7 +23,7 @@ class AttentionHead(nn.Module):
         self.generator = nn.Linear(hidden_size, num_classes)
         self.loss_func = torch.nn.CrossEntropyLoss(ignore_index=0) # ignore [GO] token = ignore index 0
 
-    def forward(self,data:dict,return_loss,**kwargs):
+    def forward(self,data:dict,return_loss:bool,**kwargs):
         if return_loss:
             return self.forward_train(data)
         else:
@@ -93,7 +93,6 @@ class AttentionHead(nn.Module):
         # select max probabilty (greedy decoding) then decode index to character
         _, preds_index = preds.max(2)
         preds_str = self.converter.decode(preds_index, [batch_max_length]*batch_size)
-        
         return preds_str
 
     def _char_to_onehot(self, input_char,device, onehot_dim=38):
