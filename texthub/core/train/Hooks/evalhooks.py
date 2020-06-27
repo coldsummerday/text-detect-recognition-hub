@@ -61,9 +61,15 @@ class RecoEvalHook(BaseHook):
         runner.logger.info(predicted_result_log)
         runner.model.train()
 
+def batch_dict_data_tocuda(data:dict):
+    for key,values in data.items():
+        if hasattr(values,'cuda'):
+            data[key]=values.cuda()
+    return data
+
 
 class DistRecoEvalHook(BaseHook):
-    def __init__(self,dataset,interval=1,show_number=5,**eval_kwargs):
+    def __init__(self,dataset,interval=5,show_number=5,**eval_kwargs):
         if isinstance(dataset, Dataset):
             self.dataset = dataset
         elif isinstance(dataset, dict):
@@ -77,16 +83,17 @@ class DistRecoEvalHook(BaseHook):
         self.show_number = show_number
         self.idx_list = list(range(len(self.dataset)))
 
+
     def after_train_epoch(self, runner):
         if not self.every_n_iters(runner, self.interval):
             return
 
-        if runner.rank==0:
+        if runner.rank == 0:
             """
             主机进行测试,其他继续
             """
             runner.model.eval()
-        ##TODO:eval 整个valid数据集并计算准确率跟
+            ##TODO:eval 整个valid数据集并计算准确率跟
             random_idx = random.sample(self.idx_list, self.show_number)
             labels = []
             preds = []
@@ -97,16 +104,18 @@ class DistRecoEvalHook(BaseHook):
                     # compute output
                     img_tensor = data["img"]
                     img_tensor = img_tensor.unsqueeze(0)
+                    data["img"] = img_tensor
                     # 判断模型是运行在cpu上还是GPU上
                     if next(runner.model.parameters()).is_cuda:
-                        img_tensor = img_tensor.cuda()
+                        data = batch_dict_data_tocuda(data)
                     # 如果是数据并行,则只用一块gpu来处理结果,不然默认的dataparallel的gather函数会将字符串类型的返回结果处理成str(map)
-                    if type(runner.model) == DataParallel:
-                        outputs = runner.model.module(img_tensor=img_tensor, extra_data=None,
-                                                  return_loss=False)
+                    if type(runner.model) == DataParallel or type(runner.model) == DistributedDataParallel:
+                        outputs = runner.model.module(data=data, return_loss=False)
+                        ##conver tensor to str
+                        outputs = runner.model.module.postprocess(outputs)
                     else:
-                        outputs = runner.model(img_tensor=img_tensor, extra_data=None,
-                                           return_loss=False)
+                        outputs = runner.model(data=data, return_loss=False)
+                        outputs = runner.model.module.postprocess(outputs)
                     preds.append(outputs[0])
             # show some predicted results
             dashed_line = '-' * 80
@@ -120,13 +129,6 @@ class DistRecoEvalHook(BaseHook):
 
             runner.logger.info(predicted_result_log)
             runner.model.train()
-
-
-
-
-
-
-
 
 # class DistEvalHook(BaseHook):
 #

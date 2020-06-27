@@ -37,7 +37,7 @@ class BidirectionalLSTM(nn.Module):
             pass
         else:
             raise TypeError('pretrained must be a str or None')
-
+    ##此处要加隐状态
     def forward(self, input):
         """
         input : visual feature [batch_size x T x input_size]
