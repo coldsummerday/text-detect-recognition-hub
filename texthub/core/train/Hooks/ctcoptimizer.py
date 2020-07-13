@@ -8,7 +8,7 @@ from .basehook import BaseHook
             # https://github.com/jpuigcerver/PyLaia/issues/16
             torch.backends.cudnn.enabled = False
             cost = criterion(preds, text.to(device), preds_size.to(device), length.to(device))
-            torch.backends.cudnn.enabled = True
+            torch.backends.cudnn.enabled = True                                                                                                 
 """
 
 class CtcOptimizerHook(BaseHook):

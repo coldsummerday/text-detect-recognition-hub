@@ -1,42 +1,48 @@
 # dataset settings
+dataset_type = 'LmdbDataset'
+data_root = '/data/zhb/data/receipt/TextRecognition/data_lmdb_release/training/ST/'
+val_data_root = '/data/zhb/data/receipt/TextRecognition/data_lmdb_release/validation/'
 
+charsets = "EnglishPrintableCharset"
+max_len_labels = 25
 model = dict(
-    type="Seq2SeqAttention",
+    type="AsterRecognizer",
     pretrained=None,
     transformation = dict(
-        type="TPSSpatialTransformerNetwork",
-        F=20,#'number of fiducial points of TPS-STN'
+        type="SPN",
+        K=20,#'number of fiducial points of TPS-STN'
         I_size=(32, 100),
         I_r_size=(32, 100),
         I_channel_num=1
     ),
     backbone=dict(
-        type="CRNNVGG",
+        type="AsterResNet",
         input_channel=1,
         output_channel=512
     ),
-
-    label_head =dict(
-        type="Seq2SeqAttnHead",
+    sequence = dict(
+        type="DoubleBidirectionalLSTM",
         input_size=512,
         hidden_size=256,
-        charsets="ChineseCharset",
-        batch_max_length=25
     ),
-    feature_wh = 24,
-    batch_max_length = 25,
+    label_head =dict(
+        type="AsterAttentionRecognitionHead",
+        input_dim=256,
+        hidden_dim=256,
+        attention_dim=256,
+        beam_width=2,
+        charsets=charsets,
+        max_len_labels=max_len_labels
+    ),
 )
 cudnn_benchmark = True
 train_cfg = dict()
 test_cfg = dict()
-dataset_type = 'LmdbDataset'
-data_root = '/data/zhb/data/receipt/TextRecognition/3rd_lmdb_recognition_benchmark_data/train_lmdb_benchmark/'
-val_data_root = '/data/zhb/data/receipt/TextRecognition/3rd_lmdb_recognition_benchmark_data/for_valid/test_lmdb_benchmark/'
-#val_data_root = "/Users/zhouhaibin/data/for_valid/test_lmdb_benchmark/"
+
 train_pipeline = [
     dict(type='ResizeRecognitionImage', img_scale=(32,100)),
     dict(type='NormalizePADToTensor', max_size=(1,32,100),PAD_type="right"),
-    dict(type="AttentionLabelEncode",charsets="ChineseCharset",batch_max_length=25),
+    dict(type="AttentionLabelEncode",charsets=charsets,batch_max_length=max_len_labels),
     dict(type='Collect', keys=['img', 'label',"ori_label"]),
 ]
 val_pipeline = [
@@ -47,30 +53,30 @@ val_pipeline = [
 test_pipeline = [
     dict(type='ResizeRecognitionImage', img_scale=(32, 100)),
     dict(type='NormalizePADToTensor', max_size=(1, 32, 100), PAD_type="right"),
-    dict(type='Collect', keys=['img',"label"]),
+    dict(type='Collect', keys=['img']),
 ]
 
-##128每张显存 2613MiB,256:5207MiB
+##128每张显存 3843MiB,256:5207MiB
 data = dict(
-    imgs_per_gpu=256,
+    imgs_per_gpu=128,
     workers_per_gpu=2,
     train=dict(
         type=dataset_type,
         root=data_root,
         pipeline = train_pipeline,
-        charsets="ChineseCharset",
+        charsets=charsets,
         ),
     val=dict(
         type=dataset_type,
         root=val_data_root,
         pipeline = val_pipeline,
-        charsets="ChineseCharset",
+        charsets=charsets,
         ),
     test=dict(
         type=dataset_type,
         root=val_data_root,
         pipeline = val_pipeline,
-        charsets="ChineseCharset",
+        charsets=charsets,
         )
 )
 
@@ -84,20 +90,20 @@ lr_config = dict(
     warmup_iters=500,
     warmup_ratio=1.0 / 3,
     step=[16, 22])
-checkpoint_config = dict(interval=50,save_mode=True) ##save_mode true->epoch, false->iter
+checkpoint_config = dict(interval=10,save_mode=True) ##save_mode true->epoch, false->iter
 dist_params = dict(backend='nccl')
 # yapf:disable
 log_config = dict(
-    interval=1000,
+    interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
         # dict(type='TensorboardLoggerHook')
     ])
 # yapf:enable
 # runtime settings
-total_epochs = 286
+total_epochs = 70
 log_level = 'INFO'
-work_dir = './work_dirs/tps_vgg_seq2seq_attention/'
+work_dir = './work_dirs/aster_tps_resnet_attion_eng/'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]

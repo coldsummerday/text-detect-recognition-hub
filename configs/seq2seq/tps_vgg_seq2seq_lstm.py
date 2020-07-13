@@ -1,7 +1,7 @@
 # dataset settings
 
 model = dict(
-    type="Seq2SeqAttention",
+    type="Seq2SeqAttentionLstm",
     pretrained=None,
     transformation = dict(
         type="TPSSpatialTransformerNetwork",
@@ -15,10 +15,14 @@ model = dict(
         input_channel=1,
         output_channel=512
     ),
-
+    sequence = dict(
+        type="DoubleBidirectionalLSTM",
+        input_size=512,
+        hidden_size=256,
+    ),
     label_head =dict(
         type="Seq2SeqAttnHead",
-        input_size=512,
+        input_size=256,
         hidden_size=256,
         charsets="ChineseCharset",
         batch_max_length=25
@@ -95,9 +99,9 @@ log_config = dict(
     ])
 # yapf:enable
 # runtime settings
-total_epochs = 286
+total_epochs = 200
 log_level = 'INFO'
-work_dir = './work_dirs/tps_vgg_seq2seq_attention/'
+work_dir = './work_dirs/tps_vgg_seq2seq_lstm/'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]

@@ -1,7 +1,7 @@
 from texthub.utils import Config
 from texthub.datasets import build_dataset
 
-config_file = "./configs/fourstagerecogition/tps_vgg_lstm_attention.py"
+config_file = "./configs/recognition/aster/aster_tps_resnet11_attention_eng.py"
 cfg = Config.fromfile(config_file)
 ##
 dataset = build_dataset(cfg.data.train)

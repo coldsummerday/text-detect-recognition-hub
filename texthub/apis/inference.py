@@ -152,6 +152,7 @@ def inference_recognizer(model,img:str):
     # forward the model
     with torch.no_grad():
         preds = model(data,return_loss=False)
+    preds = model.postprocess(preds)
     return preds[0]
 
 

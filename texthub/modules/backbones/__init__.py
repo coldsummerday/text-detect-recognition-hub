@@ -1,2 +1,2 @@
 from .vgg import CRNNVGG
-from .resnet import ResNet
+from .rec_resnet import AsterResNet
