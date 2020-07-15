@@ -138,7 +138,7 @@ class Runner(object):
                         return
                     epoch_runner(data_loaders[i], **kwargs)
 
-        time.sleep(1)  # wait for some hooks like loggers to finish
+        time.sleep(0.5)  # wait for some hooks like loggers to finish
         self.call_hook('after_run')
 
     """

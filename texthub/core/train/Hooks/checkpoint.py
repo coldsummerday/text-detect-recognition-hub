@@ -1,10 +1,11 @@
 from .basehook import BaseHook
 from ....utils.dist_utils import master_only
-class CheckpointHook(BaseHook):
 
+
+class CheckpointHook(BaseHook):
     def __init__(self,
                  interval=-1,
-                 save_mode=True,
+                 epoch_mode=True,
                  save_optimizer=True,
                  out_dir=None,
                  **kwargs):
@@ -15,7 +16,7 @@ class CheckpointHook(BaseHook):
         :param out_dir:
         :param kwargs:
         """
-        self.save_mode = save_mode
+        self.save_mode = epoch_mode
         self.interval = interval
         self.save_optimizer = save_optimizer
         self.out_dir = out_dir
@@ -23,7 +24,7 @@ class CheckpointHook(BaseHook):
 
     @master_only
     def after_train_iter(self, runner):
-        if not self.every_n_epochs(runner, self.interval):
+        if not self.every_n_iters(runner,self.interval):
             return
         if not self.out_dir:
             self.out_dir = runner.work_dir

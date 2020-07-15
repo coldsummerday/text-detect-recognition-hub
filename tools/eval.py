@@ -13,7 +13,6 @@ import Polygon as plg
 
 from texthub.utils import Config
 from texthub.datasets import  build_dataset
-from texthub.utils.processbar import ProgressBar
 from texthub.modules import build_recognizer,build_detector
 from texthub.core.utils.checkpoint import load_checkpoint
 from texthub.core.evaluation import eval_poly_detect,eval_text
@@ -26,7 +25,6 @@ def model_inference(model,data_loader,get_gt_func)->([],[]):
     dataset = data_loader.dataset
     results = []
     gts = []
-    prog_bar = ProgressBar(len(dataset))
     for i, data in enumerate(data_loader):
         data['img'] = data['img'].to(device)
         with torch.no_grad():
@@ -35,12 +33,20 @@ def model_inference(model,data_loader,get_gt_func)->([],[]):
             result = model.module.postprocess(result)
         else:
             result = model.postprocess(result)
-        results.extend(result)
+        ##TODO:每次eval 的f1 都不一样
+        #result array to change to gt_poly
+        batch_polys = []
+        for batch_pred in result:
+            polys = []
+            for bbox in batch_pred:
+                poly = plg.Polygon(bbox)
+                polys.append(poly)
+            batch_polys.append(polys)
+        results.extend(batch_polys)
         gt = get_gt_func(data)
         gts.extend(gt)
         batch_size = data['img'][0].size(0)
-        for _ in range(batch_size):
-            prog_bar.update()
+
     return results,gts
 
 def parse_args():

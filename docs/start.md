@@ -1,8 +1,15 @@
+
+
+### High-level APIs for testing images
+
+#### Synchronous interface
+Here is an example of building the model and test given images for text detection.
+
+```python
 import os.path as osp
 import os
 import sys
 import cv2
-import  numpy as  np
 this_path = os.path.split(os.path.realpath(__file__))[0]
 sys.path.append(osp.join(this_path,'../'))
 from texthub.apis import init_detector,inference_detector
@@ -24,25 +31,31 @@ def draw_bbox(img_path, result, color=(255, 0, 0), thickness=2):
         cv2.line(img_path, tuple(point[3]), tuple(point[0]), color, thickness)
     return img_path
 
-
-
-# img = "./testimgs/img_305.jpg"
-img = "/home/zhou/data/data/receipt/end2end/receipt_2nd_icdr15/ori_imgs/8.jpg"
+img = "test.jpg"
 preds = inference_detector(model,img)
+
 img = cv2.imread(img)
 
+img = draw_bbox(img,preds)
+cv2.imshow("s",img)
+```
 
 
+for text recognition:
 
-for index,i in enumerate(preds):
-    droped_img = crop_by_poly(img,i)
-    cv2.imshow(str(index)+".jpg",droped_img)
-    cv2.waitKey()
+```python
+import os.path as osp
+import os
+import sys
+this_path = os.path.split(os.path.realpath(__file__))[0]
+sys.path.append(osp.join(this_path,'../'))
+from texthub.apis import init_recognizer,inference_recognizer
+import torch
+config_file ="./configs/recognition/aster/aster_tps_resnet11_attention_eng.py"
+checkpoint = "./work_dirs/aster_tps_resnet_attion_eng/AsterRecognizer_epoch_20.pth"
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = init_recognizer(config_file,checkpoint,device)
 
-
-# img = draw_bbox(img,preds)
-# cv2.imshow("s",img)
-# cv2.imwrite("./testimgs/1.jpeg",img)
-# cv2.imshow("s",img)
-# cv2.waitKey()
-
+img = "testreg.jpg"
+print(inference_recognizer(model,img))
+```

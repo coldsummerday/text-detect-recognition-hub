@@ -85,7 +85,6 @@ def inference_detector(model,img:str):
         img = cv2.imread(img)
     elif isinstance(img,np.ndarray):
         img = img
-
     elif isinstance(img,Image):
         #TODO:将PIL改为CV2
         pass
@@ -93,17 +92,31 @@ def inference_detector(model,img:str):
         raise TypeError('img must be a PIL.Image or str or np.ndarray, '
                         'but got {}'.format(type(img)))
 
+    ori_h,ori_w,ori_c = img.shape
+
     # prepare data
     data = dict(img=img)
     data = test_pipeline(data)
     img_tensor = data['img'].unsqueeze(0).to(device)
+    _,_,new_h,new_w = img_tensor.shape
     data_dict = dict(img=img_tensor)
     # forward the model
     with torch.no_grad():
         preds = model(data_dict,return_loss=False)
 
-    bbox_lists = model.postprocess(preds)
-    return bbox_lists
+    pred_bbox_list = model.postprocess(preds)
+
+    #pred_bbox_list(b,n,4,2)  [(x1,y1),(x2,y2),(x3,y3),(x4,y4)]
+    batch_pred_bbox = pred_bbox_list[0]
+
+    ## change the  bbox to origin shape
+    w_scale = float(ori_w) / new_w
+    h_scale = float(ori_h) / new_h
+
+    batch_pred_bbox[:,:,0] *=w_scale
+    batch_pred_bbox[:, :, 1] *= h_scale
+
+    return batch_pred_bbox
 
 
 

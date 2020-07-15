@@ -90,17 +90,19 @@ lr_config = dict(
     warmup_iters=500,
     warmup_ratio=1.0 / 3,
     step=[8, 16])
-checkpoint_config = dict(interval=5000,save_mode=False) ##save_mode true->epoch, false->iter
+checkpoint_config = dict(interval=5000,epoch_mode=False) ##save_mode true->epoch, false->iter
 dist_params = dict(backend='nccl')
 # yapf:disable
 log_config = dict(
-    interval=10,
+    interval=1000,
     hooks=[
         dict(type='TextLoggerHook'),
         # dict(type='TensorboardLoggerHook')
     ])
-# yapf:enable
-# runtime settings
+evaluation = dict(
+    interval=4000,
+    epoch_mode=False   ##show_flag true->epoch, false->iter
+)
 total_iters = 300000
 log_level = 'INFO'
 work_dir = './work_dirs/aster_tps_resnet_attion_eng/'

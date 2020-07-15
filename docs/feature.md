@@ -14,3 +14,9 @@ todo
 
 - [x] text recogition evaluation metrics
 - [x] text detector train
+- [] lr_config add iter step stead of epoch step
+ 
+
+bug
+
+- [] text detection  Polygon eval bug 

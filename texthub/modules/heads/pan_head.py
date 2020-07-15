@@ -46,12 +46,13 @@ class PanHead(nn.Module):
         """
 
         :param preds:
-        :return:返回list[Polygon.Polygon]方便语义分割
+        :return:
         """
-        results = []
-        for i in range(preds.shape[0]):
-            results.append(decode_ploy(preds[i]))
-        return results
+        batch_bbox_list = []
+        for batch_preds in preds:
+            _, boxes_list = decode(batch_preds)
+            batch_bbox_list.append(boxes_list)
+        return batch_bbox_list
 
     def init_weights(self, pretrained=None):
         pass
@@ -300,6 +301,7 @@ def decode_ploy(preds, scale=1, threshold=0.7311, min_area=5):
     # return pred, np.array(bbox_list)
 
 def mask_points_to_contours_points(points):
+    ##从mask中找最大临接矩阵
     max_value = np.max(points)
     mask = np.zeros((max_value + 1, max_value + 1), dtype='uint8')
     putPoints(mask, points)

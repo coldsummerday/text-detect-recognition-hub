@@ -47,7 +47,7 @@ val_pipeline = [
 test_pipeline = [
     dict(type='ResizeRecognitionImage', img_scale=(32, 100)),
     dict(type='NormalizePADToTensor', max_size=(1, 32, 100), PAD_type="right"),
-    dict(type='Collect', keys=['img',"label"]),
+    dict(type='Collect', keys=['img']),
 ]
 
 ##128每张显存 2613MiB,256:5207MiB
