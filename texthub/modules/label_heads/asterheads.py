@@ -11,7 +11,7 @@ aster encoder = resnet + lstm
 @HEADS.register_module
 class AsterAttentionRecognitionHead(nn.Module):
 
-    def __init__(self, input_dim, hidden_dim, attention_dim, charsets: str, beam_width=2,max_len_labels=25):
+    def __init__(self, input_dim, hidden_dim, attention_dim, charsets: str, beam_width=5,max_len_labels=25):
         super(AsterAttentionRecognitionHead, self).__init__()
         self.converter = AttnLabelConverter(charsets)
         """
@@ -36,11 +36,32 @@ class AsterAttentionRecognitionHead(nn.Module):
         if return_loss==True:
             return self.forward_train(data=data)
         else:
-            return self.beam_search(data=data)
+            #TODO:forward use pro instead of beam_search
+            return self.forward_test(data=data)
+
+
 
     def loss(self,probs:torch.Tensor,target:torch.Tensor):
         loss_recog = self.loss_func(probs.view(-1, probs.shape[-1]), target.contiguous().view(-1))
         return dict(loss_recog=loss_recog)
+
+    def forward_test(self,data:dict):
+        encoder_feats = data.get('img').contiguous()
+        device = encoder_feats.device
+        batch_size = encoder_feats.size(0)
+        decoder_state = torch.zeros(1, batch_size, self.hidden_dim).to(device)
+        output_tensor = torch.FloatTensor(batch_size,self.max_len_labels+1,self.num_classes).fill_(0).to(device)
+        ## +1 for [s] at end of sentence.
+        for i in range(self.max_len_labels+1):
+            if i==0:
+                y_prev = torch.zeros((batch_size)).to(device)
+            else:
+                _, predicted = output.max(1)
+                y_prev = predicted
+            output,state = self.decoder(encoder_feats,decoder_state,y_prev)
+            output_tensor[:,i,:] = output
+        _, preds_index = output_tensor.max(2)
+        return preds_index
 
     def postprocess(self,data:torch.Tensor):
         """
@@ -69,7 +90,7 @@ class AsterAttentionRecognitionHead(nn.Module):
 
         for i in range(self.max_len_labels+1):
             if i==0:
-                y_prev = torch.zeros((batch_size)).fill_(self.num_classes).to(device)
+                y_prev = torch.zeros((batch_size)).fill_(0).to(device)
             else:
                 y_prev = rec_targets[:,i-1]
             output,state = self.decoder(encoder_feats,decoder_state,y_prev)
