@@ -5,13 +5,14 @@ import os.path as osp
 import sys
 this_path = os.path.split(os.path.realpath(__file__))[0]
 sys.path.append(osp.join(this_path,'../'))
+from tqdm import tqdm
 
 import torch
 from torch.nn.parallel import DataParallel,DistributedDataParallel
 
 import Polygon as plg
 
-from texthub.utils import Config
+from texthub.utils import Config,set_random_seed
 from texthub.datasets import  build_dataset
 from texthub.modules import build_recognizer,build_detector
 from texthub.core.utils.checkpoint import load_checkpoint
@@ -25,7 +26,7 @@ def model_inference(model,data_loader,get_gt_func)->([],[]):
     dataset = data_loader.dataset
     results = []
     gts = []
-    for i, data in enumerate(data_loader):
+    for  data in tqdm(data_loader):
         data['img'] = data['img'].to(device)
         with torch.no_grad():
             result = model(data=data,return_loss=False)
@@ -45,7 +46,6 @@ def model_inference(model,data_loader,get_gt_func)->([],[]):
         results.extend(batch_polys)
         gt = get_gt_func(data)
         gts.extend(gt)
-        batch_size = data['img'][0].size(0)
 
     return results,gts
 
@@ -54,6 +54,10 @@ def parse_args():
         description='textHub test (and eval) a model')
     parser.add_argument('config', help='test config file path')
     parser.add_argument('checkpoint', help='checkpoint file')
+    parser.add_argument(
+        '--deterministic',
+        action='store_true',
+        help='whether to set deterministic options for CUDNN backend.')
     parser.add_argument(
         '--eval',
         choices=['detect', 'reco'],
@@ -68,8 +72,12 @@ def main():
 
     cfg = Config.fromfile(args.config)
     # set cudnn_benchmark
-    if cfg.get('cudnn_benchmark', False):
-        torch.backends.cudnn.benchmark = True
+    # if cfg.get('cudnn_benchmark', False):
+    #     torch.backends.cudnn.benchmark = True
+
+    # set random seeds
+    if cfg.seed is not None:
+        set_random_seed(cfg.seed, deterministic=args.deterministic)
 
 
 

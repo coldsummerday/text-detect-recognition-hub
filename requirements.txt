@@ -1,0 +1,14 @@
+torch>=1.3.0
+torchvision
+tornado
+Werkzeug
+lmdb
+pyclipper
+numpy>=1.14.0
+addict
+Flask
+Flask_RESTful
+six==1.14.0
+Pillow==7.2.0
+Polygon==3.0.5
+python-opencv-headless

@@ -14,7 +14,7 @@ from texthub.utils import Config
 from texthub.apis import train_detector
 from texthub.datasets import  build_dataset
 from texthub.modules import build_detector
-from texthub.utils import get_root_logger
+from texthub.utils import get_root_logger,set_random_seed
 from texthub.utils.dist_utils import init_dist
 
 
@@ -86,13 +86,13 @@ def main():
     logger.info('Distributed training: {}'.format(args.distributed))
     logger.info('Config:\n{}'.format(cfg.text))
 
-    # # set random seeds
-    # if args.seed is not None:
-    #     logger.info('Set random seed to {}, deterministic: {}'.format(
-    #         args.seed, args.deterministic))
-    #     set_random_seed(args.seed, deterministic=args.deterministic)
-    # cfg.seed = args.seed
-    # meta['seed'] = args.seed
+    # set random seeds
+    if args.seed is not None:
+        logger.info('Set random seed to {}, deterministic: {}'.format(
+            args.seed, args.deterministic))
+        set_random_seed(args.seed, deterministic=args.deterministic)
+    cfg.seed = args.seed
+    meta['seed'] = args.seed
 
     model = build_detector(
         cfg.model, train_cfg=cfg.train_cfg, test_cfg=cfg.test_cfg)

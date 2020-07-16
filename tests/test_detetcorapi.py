@@ -6,7 +6,10 @@ import  numpy as  np
 this_path = os.path.split(os.path.realpath(__file__))[0]
 sys.path.append(osp.join(this_path,'../'))
 from texthub.apis import init_detector,inference_detector
+from texthub.utils import set_random_seed
 import torch
+
+set_random_seed(12)
 config_file = "./configs/testpandetect.py"
 checkpoint = "./work_dirs/pan/PAN_epoch_24.pth"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -31,14 +34,7 @@ img = "/home/zhou/data/data/receipt/end2end/receipt_2nd_icdr15/ori_imgs/8.jpg"
 preds = inference_detector(model,img)
 img = cv2.imread(img)
 
-
-
-
-for index,i in enumerate(preds):
-    droped_img = crop_by_poly(img,i)
-    cv2.imshow(str(index)+".jpg",droped_img)
-    cv2.waitKey()
-
+print(len(preds))
 
 # img = draw_bbox(img,preds)
 # cv2.imshow("s",img)

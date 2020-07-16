@@ -100,6 +100,7 @@ log_config = dict(
     ])
 # yapf:enable
 # runtime settings
+seed = 10
 total_epochs = 24
 log_level = 'INFO'
 work_dir = './work_dirs/pan/'

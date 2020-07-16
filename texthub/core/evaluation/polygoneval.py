@@ -16,10 +16,6 @@ def plg_get_intersection(pD:plg.Polygon,pG:plg.Polygon):
         return 0
     return pInt.area()
 
-
-
-
-
 def polygon_from_points(points):
     """
     Returns a Polygon object to use with the Polygon2 class from a list of 8 points: x1,y1,x2,y2,x3,y3,x4,y4
@@ -70,6 +66,7 @@ def eval_poly_detect(preds:[[plg.Polygon]],gts:[[plg.Polygon]],thresh = 0.5):
                     if gt_id not in cover:
                         flag = True
                         cover.add(gt_id)
+
             if flag:
                 tp += 1.0
             else:

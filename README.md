@@ -1,17 +1,29 @@
 # text-detect-recognition-hub
 
+text-detect-recognition is an open source project  text detection  and text recognition toolbox base on the pytorch.
+ 
+It work's on **pytorch  1.3-1.5**
+
+
+features:
+* split  module  design 
+* Integrated distributed training
 
 
 
 
-bug:detect polygon iou cal Unstable
 
+
+
+
+### 安装
 
 第一次安装该代码要安装cpp拓展部分.
 ```python
 sudo python3 setup.py build_ext --inplace
 ```
 
+### 训练
 
 训练代码:
 ```python
@@ -19,7 +31,12 @@ python3 -m torch.distributed.launch  --nproc_per_node=2  tools/train_*.py  confi
 ```
 训练的参数有保存工作目录, 是否从断点开始恢复等,详情看tools/train.sh
 
+### eval
 
+```python
+python3 tools/eval.py config.py *.pth --eval detect
+python3 tools/eval.py config.py *.pth --eval reco
+```
 
 
 ### 部署 推理：
