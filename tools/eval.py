@@ -34,8 +34,6 @@ def model_inference(model,data_loader,get_gt_func)->([],[]):
             result = model.module.postprocess(result)
         else:
             result = model.postprocess(result)
-        ##TODO:每次eval 的f1 都不一样
-        #result array to change to gt_poly
         batch_polys = []
         for batch_pred in result:
             polys = []

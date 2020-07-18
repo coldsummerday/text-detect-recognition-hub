@@ -91,12 +91,12 @@ def main():
     logger.info('Config:\n{}'.format(cfg.text))
 
     # set random seeds
-    if args.seed is not None:
+    if cfg.seed is not None:
         logger.info('Set random seed to {}, deterministic: {}'.format(
-            args.seed, args.deterministic))
-        set_random_seed(args.seed, deterministic=args.deterministic)
-    cfg.seed = args.seed
-    meta['seed'] = args.seed
+            cfg.seed, args.deterministic))
+        set_random_seed(cfg.seed, deterministic=args.deterministic)
+
+    meta['seed'] = cfg.seed
 
     model = build_recognizer(
         cfg.model, train_cfg=cfg.train_cfg, test_cfg=cfg.test_cfg)

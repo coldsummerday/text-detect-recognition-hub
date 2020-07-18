@@ -71,7 +71,7 @@ def batch_dict_data_tocuda(data:dict):
 
 
 class DistRecoEvalHook(BaseHook):
-    def __init__(self,dataset,interval=2,show_number=5,epoch_mode = True,**eval_kwargs):
+    def __init__(self,dataset,interval=2,show_number=5,by_epoch = True,**eval_kwargs):
         if isinstance(dataset, Dataset):
             self.dataset = dataset
         elif isinstance(dataset, dict):
@@ -80,7 +80,7 @@ class DistRecoEvalHook(BaseHook):
             raise TypeError(
                 'dataset must be a Dataset object or a dict, not {}'.format(
                     type(dataset)))
-        self.show_flag = epoch_mode ##show_flag true->epoch, false->iter
+        self.show_flag = by_epoch  ##show_flag true->epoch, false->iter
         self.interval = interval
         self.eval_kwargs = eval_kwargs
         self.show_number = show_number

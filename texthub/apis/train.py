@@ -1,7 +1,7 @@
 
 import torch
 from torch.nn.parallel import DistributedDataParallel,DataParallel
-from ..core.train import Runner
+from ..core.train import Runner,EpochBaseRunner,IterBasedRunner
 from ..utils import get_root_logger
 from ..core.optimizer import build_optimizer
 from ..core.train.Hooks import RecoEvalHook,DistSamplerSeedHook,DistRecoEvalHook,DistOptimizerHook
@@ -120,13 +120,25 @@ def _dist_train(model,
 
     # build runner
     optimizer = build_optimizer(model, cfg.optimizer)
-    runner = Runner(
-        model,
-        batch_processor,
-        optimizer,
-        cfg.work_dir,
-        logger=logger,
-        meta=meta)
+
+    iters_num = cfg.get('total_iters', None)
+    if iters_num == None:
+        runner = EpochBaseRunner(
+            model,
+            batch_processor,
+            optimizer,
+            cfg.work_dir,
+            logger=logger,
+            meta=None)
+    else:
+        runner = IterBasedRunner(
+            model,
+            batch_processor,
+            optimizer,
+            cfg.work_dir,
+            logger=logger,
+            meta=None)
+
     # an ugly walkaround to make the .log and .log.json filenames the same
     runner.timestamp = timestamp
 
@@ -142,7 +154,7 @@ def _dist_train(model,
     # register hooks
     runner.register_training_hooks(cfg.lr_config, optimizer_config,
                                    cfg.checkpoint_config, cfg.log_config)
-    runner.register_hook(DistSamplerSeedHook())
+
     # register eval hooks
     if validate:
         val_dataset_cfg = cfg.data.val
@@ -155,8 +167,10 @@ def _dist_train(model,
         runner.load_checkpoint(cfg.load_from)
     iters_num = cfg.get('total_iters', None)
     if iters_num!=None:
-        runner.run(data_loaders, cfg.workflow, iters_num,train_max_mode=False)
+        runner.run(data_loaders, cfg.workflow, iters_num)
     else:
+        ##epoch base runner 需要， iter base 以及在dataloader设置了
+        runner.register_hook(DistSamplerSeedHook())
         runner.run(data_loaders, cfg.workflow, cfg.total_epochs)
 
 
@@ -188,13 +202,24 @@ def _non_dist_train(model,
 
     # build runner
     optimizer = build_optimizer(model, cfg.optimizer)
-    runner = Runner(
-        model,
-        batch_processor,
-        optimizer,
-        cfg.work_dir,
-        logger=logger,
-        meta=None)
+    iters_num = cfg.get('total_iters', None)
+    if iters_num==None:
+        runner = EpochBaseRunner(
+            model,
+            batch_processor,
+            optimizer,
+            cfg.work_dir,
+            logger=logger,
+            meta=None)
+    else:
+        runner = IterBasedRunner(
+            model,
+            batch_processor,
+            optimizer,
+            cfg.work_dir,
+            logger=logger,
+            meta=None)
+
     # an ugly walkaround to make the .log and .log.json filenames the same
     runner.timestamp = timestamp
 
@@ -226,9 +251,9 @@ def _non_dist_train(model,
 
     iters_num = cfg.get('total_iters', None)
     if iters_num != None:
-        runner.run(data_loaders, cfg.workflow, iters_num, train_max_mode=False)
+        runner.run(data_loaders, cfg.workflow, iters_num)
     else:
-        runner.run(data_loaders, cfg.workflow, cfg.total_epochs,train_max_mode=True)
+        runner.run(data_loaders, cfg.workflow, cfg.total_epochs)
 
 
 

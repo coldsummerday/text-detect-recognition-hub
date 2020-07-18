@@ -5,7 +5,7 @@ from ....utils.dist_utils import master_only
 class CheckpointHook(BaseHook):
     def __init__(self,
                  interval=-1,
-                 epoch_mode=True,
+                 by_epoch=True,
                  save_optimizer=True,
                  out_dir=None,
                  **kwargs):
@@ -16,7 +16,7 @@ class CheckpointHook(BaseHook):
         :param out_dir:
         :param kwargs:
         """
-        self.save_mode = epoch_mode
+        self.by_epoch = by_epoch
         self.interval = interval
         self.save_optimizer = save_optimizer
         self.out_dir = out_dir
@@ -24,13 +24,14 @@ class CheckpointHook(BaseHook):
 
     @master_only
     def after_train_iter(self, runner):
-        if not self.every_n_iters(runner,self.interval):
+        if  self.by_epoch or not self.every_n_iters(runner,self.interval):
             return
         if not self.out_dir:
             self.out_dir = runner.work_dir
+        runner.logger.info(
+            f'Saving checkpoint at {runner.iter + 1} iterations')
 
-        if not self.save_mode:
-            runner.save_checkpoint(
+        runner.save_checkpoint(
                 self.out_dir, save_optimizer=self.save_optimizer, **self.args)
 
 
@@ -38,11 +39,11 @@ class CheckpointHook(BaseHook):
     ##用于每个interval 保存checkpoint
     @master_only
     def after_train_epoch(self, runner):
-        if not self.every_n_epochs(runner, self.interval):
+        if not self.by_epoch or  not self.every_n_epochs(runner, self.interval):
             return
-
+        runner.logger.info(f'Saving checkpoint at {runner.epoch + 1} epochs')
         if not self.out_dir:
             self.out_dir = runner.work_dir
-        if self.save_mode:
-            runner.save_checkpoint(
+
+        runner.save_checkpoint(
                 self.out_dir, save_optimizer=self.save_optimizer, **self.args)
