@@ -6,6 +6,8 @@ import sys
 this_path = os.path.split(os.path.realpath(__file__))[0]
 sys.path.append(osp.join(this_path,'../'))
 from tqdm import tqdm
+from typing import Callable
+
 
 import torch
 from torch.nn.parallel import DataParallel,DistributedDataParallel
@@ -17,7 +19,7 @@ from texthub.datasets import  build_dataset
 from texthub.modules import build_recognizer,build_detector
 from texthub.core.utils.checkpoint import load_checkpoint
 from texthub.core.evaluation import eval_poly_detect,eval_text
-def model_inference(model,data_loader,get_gt_func)->([],[]):
+def model_inference(model,data_loader,get_pred_func:Callable,get_gt_func:Callable)->([],[]):
     if hasattr(model,"module"):
         device = next(model.module.parameters()).device
     else:
@@ -34,14 +36,8 @@ def model_inference(model,data_loader,get_gt_func)->([],[]):
             result = model.module.postprocess(result)
         else:
             result = model.postprocess(result)
-        batch_polys = []
-        for batch_pred in result:
-            polys = []
-            for bbox in batch_pred:
-                poly = plg.Polygon(bbox)
-                polys.append(poly)
-            batch_polys.append(polys)
-        results.extend(batch_polys)
+
+        results.extend(get_pred_func(result))
         gt = get_gt_func(data)
         gts.extend(gt)
 
@@ -111,10 +107,10 @@ def main():
     #         model = model.cuda()
 
     if args.eval == "detect":
-        preds,gts = model_inference(model,data_loader,get_gt_func=detect_gt_func)
+        preds,gts = model_inference(model,data_loader,get_pred_func=detect_pred_func,get_gt_func=detect_gt_func)
         print(eval_poly_detect(preds,gts))
     else:
-        preds, gts = model_inference(model, data_loader, get_gt_func=reco_gt_func)
+        preds, gts = model_inference(model, data_loader, get_pred_func=reco_pred_func,get_gt_func=reco_gt_func)
         print(eval_text(preds,gts))
 
 
@@ -129,6 +125,22 @@ def tensor2poly(gt_polys:torch.Tensor):
                 image_polys.append(poly_gon)
         results.append(image_polys)
     return results
+
+
+def detect_pred_func(result):
+    batch_polys = []
+    for batch_pred in result:
+        polys = []
+        for bbox in batch_pred:
+            poly = plg.Polygon(bbox)
+            polys.append(poly)
+        batch_polys.append(polys)
+    return batch_polys
+
+def reco_pred_func(result):
+    return result
+
+
 
 def detect_gt_func(data:dict):
     gts = data.get("gt_polys")
