@@ -6,11 +6,11 @@ val_data_root = '/data/zhb/data/receipt/TextRecognition/3rd_lmdb_recognition_ben
 charsets = "ChineseCharset"
 max_len_labels = 25
 model = dict(
-    type="AsterRecognizer",
+    type="FourStageModel",
     pretrained=None,
     transformation = dict(
-        type="SPN",
-        K=20,#'number of fiducial points of TPS-STN'
+        type="TPSSpatialTransformerNetwork",
+        F=20,#'number of fiducial points of TPS-STN'
         I_size=(32, 100),
         I_r_size=(32, 100),
         I_channel_num=1
@@ -26,14 +26,12 @@ model = dict(
         hidden_size=256,
     ),
     label_head =dict(
-        type="AsterAttentionRecognitionHead",
-        input_dim=256,
-        hidden_dim=256,
-        attention_dim=256,
-        beam_width=3,
-        charsets=charsets,
-        max_len_labels=max_len_labels
-    ),
+        type="AttentionHead",
+        input_size=256,
+        hidden_size=256,
+        charsets=charsets
+    )
+
 )
 cudnn_benchmark = True
 train_cfg = dict()
@@ -56,7 +54,7 @@ test_pipeline = [
     dict(type='Collect', keys=['img']),
 ]
 
-##128每张显存 3843MiB,256:5207MiB
+##128每张显存 2613MiB,256:5207MiB
 data = dict(
     imgs_per_gpu=128,
     workers_per_gpu=2,
@@ -83,14 +81,6 @@ data = dict(
 # optimizer
 optimizer = dict(type='Adadelta', lr=1, rho=0.95, eps=1e-8)
 optimizer_config = dict()
-# learning policy
-# lr_config = dict(
-#     policy='step',
-#     warmup='linear',
-#     warmup_iters=300000,
-#     warmup_ratio=0.01,
-#     gamma=0.6,
-#     step=[140000, 200000,250000])
 ##不使用lr减少
 lr_config = None
 checkpoint_config = dict(interval=50000) ##save_mode true->epoch, false->iter
@@ -109,7 +99,7 @@ evaluation = dict(
 seed = 1211
 total_iters = 300000
 log_level = 'INFO'
-work_dir = './work_dirs/aster_tps_resnet_attion_chinese_iter/'
+work_dir = './work_dirs/fourstage_tps_resnet_attention_chinese_iter/'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]

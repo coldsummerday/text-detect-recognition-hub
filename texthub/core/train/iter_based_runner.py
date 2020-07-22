@@ -177,7 +177,8 @@ class IterBasedRunner(BaseRunner):
         if checkpoint_config is None:
             checkpoint_config = {}
         checkpoint_config['by_epoch']= False
-        lr_config['by_epoch']= False
+        if lr_config!=None:
+            lr_config['by_epoch']= False
 
         self.register_lr_hooks(lr_config)
         self.register_hook(self.build_hook(optimizer_config, OptimizerHook))

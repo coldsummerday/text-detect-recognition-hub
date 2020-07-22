@@ -40,7 +40,6 @@ class LoggerHook(BaseHook):
         runner.log_buffer.clear()  # clear logs of last epoch
 
     def after_train_iter(self, runner):
-        print(not self.by_epoch,self.every_n_iters(runner, self.interval))
         if self.by_epoch and self.every_n_inner_iters(runner, self.interval):
             runner.log_buffer.average(self.interval)
         elif not self.by_epoch and self.every_n_iters(runner, self.interval):

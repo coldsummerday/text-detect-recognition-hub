@@ -10,7 +10,7 @@ from .basehook import BaseHook
 """
 
 class LrUpdaterHook(BaseHook):
-    """LR Scheduler in MMCV.
+    """LR Scheduler
 
     Args:
         by_epoch (bool): LR changes epoch by epoch
@@ -30,6 +30,7 @@ class LrUpdaterHook(BaseHook):
                  warmup=None,
                  warmup_iters=0,
                  warmup_ratio=0.1,
+                 interval=1000,
                  warmup_by_epoch=False):
         # validate the "warmup" argument
         if warmup is not None:
@@ -48,6 +49,7 @@ class LrUpdaterHook(BaseHook):
         self.warmup_iters = warmup_iters
         self.warmup_ratio = warmup_ratio
         self.warmup_by_epoch = warmup_by_epoch
+        self.interval = interval
 
         if self.warmup_by_epoch:
             self.warmup_epochs = self.warmup_iters
@@ -126,6 +128,9 @@ class LrUpdaterHook(BaseHook):
         self._set_lr(runner, self.regular_lr)
 
     def before_train_iter(self, runner):
+        #不用每次个iter都修改lr
+        if not self.every_n_iters(runner,self.interval):
+            return
         cur_iter = runner.iter
         if not self.by_epoch:
             self.regular_lr = self.get_regular_lr(runner)
@@ -142,6 +147,55 @@ class LrUpdaterHook(BaseHook):
             else:
                 warmup_lr = self.get_warmup_lr(cur_iter)
                 self._set_lr(runner, warmup_lr)
+
+
+class ExpIterdecayLrUpdaterHook(BaseHook):
+    def __init__(self,interval=1000,power_decay = 0.9,min_lr=0.007):
+        self.interval = interval
+        self.power_decay = power_decay
+        self.min_lr = min_lr
+
+    def get_lr(self, runner, base_lr):
+        now_iter, max_iter = runner._iter,runner._max_iters
+        fix_lr = base_lr * float(1 - now_iter / max_iter) ** self.power_decay
+        if fix_lr > self.min_lr:
+            return fix_lr
+        else:
+            return  self.min_lr
+
+    def before_train_iter(self, runner):
+        #不用每次个iter都修改lr
+        if not self.every_n_iters(runner,self.interval):
+            return
+        lr_groups = [self.get_lr(runner, _base_lr) for _base_lr in self.base_lr]
+        self._set_lr(runner, lr_groups)
+    def _set_lr(self, runner, lr_groups):
+        if isinstance(runner.optimizer, dict):
+            for k, optim in runner.optimizer.items():
+                for param_group, lr in zip(optim.param_groups, lr_groups[k]):
+                    param_group['lr'] = lr
+        else:
+            for param_group, lr in zip(runner.optimizer.param_groups,
+                                       lr_groups):
+                param_group['lr'] = lr
+    def before_run(self, runner):
+        # NOTE: when resuming from a checkpoint, if 'initial_lr' is not saved,
+        # it will be set according to the optimizer params
+        if isinstance(runner.optimizer, dict):
+            self.base_lr = {}
+            for k, optim in runner.optimizer.items():
+                for group in optim.param_groups:
+                    group.setdefault('initial_lr', group['lr'])
+                _base_lr = [
+                    group['initial_lr'] for group in optim.param_groups
+                ]
+                self.base_lr.update({k: _base_lr})
+        else:
+            for group in runner.optimizer.param_groups:
+                group.setdefault('initial_lr', group['lr'])
+            self.base_lr = [
+                group['initial_lr'] for group in runner.optimizer.param_groups
+            ]
 
 
 class FixedLrUpdaterHook(LrUpdaterHook):

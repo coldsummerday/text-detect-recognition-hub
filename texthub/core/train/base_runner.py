@@ -380,6 +380,8 @@ class BaseRunner(metaclass=ABCMeta):
        注册钩子
     """
     def register_lr_hooks(self, lr_config):
+        if lr_config==None:
+            return
         if isinstance(lr_config, LrUpdaterHook):
             self.register_hook(lr_config)
         elif isinstance(lr_config, dict):

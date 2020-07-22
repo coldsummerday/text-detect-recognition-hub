@@ -56,7 +56,8 @@ class NormalizePADToTensor(object):
     def __call__(self, data:{}):
         img = data.get('img')
         img = self.toTensor(img)
-        img.sub_(0.5).div_(0.5)
+        ## Normalize 导致小票文字区域出现黑白断点，所以不进行Normalize
+        # img.sub_(0.5).div_(0.5)
         c, h, w = img.size()
         pad_img = torch.FloatTensor(*self.max_size).fill_(0)
         pad_img[:, :, :w] = img  # right pad
