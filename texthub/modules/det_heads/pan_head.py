@@ -37,7 +37,7 @@ class PanHead(nn.Module):
         """
         if return_loss:
             img = data.get("img")
-            loss_dict = self.loss(outputs=img, labels=data.get('labels'), training_masks=data.get('training_mask'))
+            loss_dict = self.loss(outputs=img, labels=data.get('gt'), training_masks=data.get('mask'))
             return loss_dict
         else:
             return data['img']

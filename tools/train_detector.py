@@ -31,6 +31,10 @@ def parse_args():
         default=1,
         help='number of gpus to use '
         '(only applicable to non-distributed training)')
+    parser.add_argument(
+        '--deterministic',
+        action='store_true',
+        help='whether to set deterministic options for CUDNN backend.')
     parser.add_argument("--distributed",default=True,type=bool,help="use DistributedDataParallel to train")
     parser.add_argument('--local_rank', type=int, default=0)
 

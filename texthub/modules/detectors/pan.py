@@ -5,11 +5,6 @@ from ..builder import build_backbone,build_neck,build_head
 
 @DETECTORS.register_module
 class PAN(BaseDetector):
-    """
-    four stage recognition model with:trans->feature_extraction->sequence_modeling->prediction
-    base on the paper:What Is Wrong With Scene Text Recognition Model Comparisons? Dataset and Model Analysis.
-    https://arxiv.org/pdf/1904.01906.pdf
-    """
 
     def __init__(
             self,

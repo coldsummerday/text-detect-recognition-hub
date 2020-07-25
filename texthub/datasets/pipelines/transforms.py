@@ -74,7 +74,7 @@ class Ndarray2tensor(object):
         pass
     def __call__(self,data:dict):
         assert type(data.get("img"))==np.ndarray
-        data['img'] = self.transforms(Image.fromarray(data['img']))
+        data['img'] = self.transforms(data['img'])
         return data
 
 @PIPELINES.register_module
@@ -98,9 +98,10 @@ class Gt2SameDim(object):
 class GenerateTrainMask(object):
     """
     shrink_ratio: gt收缩的比例
+    vatli clipping 算法收缩 training textregion
     """
-    def __init__(self,shrink_ratio=0.5):
-        self.shrink_ratio = shrink_ratio
+    def __init__(self,shrink_ratio_list:[int]=[0.4]):
+        self.shrink_ratio_list = shrink_ratio_list
 
 
     def __call__(self,data:dict):
@@ -109,15 +110,14 @@ class GenerateTrainMask(object):
         text_tags = data["gt_tags"]
         training_mask = np.ones((h, w), dtype=np.uint8)
         score_maps = []
-        for i in (1, self.shrink_ratio):
-            score_map, training_mask = self.generate_rbox((h, w), text_polys, text_tags, training_mask, i)
+        ##两张，一张完整的图，一张缩小的图。。 DB只需要一张
+        for shrink_ratio in self.shrink_ratio_list:
+            score_map, training_mask = self.generate_rbox((h, w), text_polys, text_tags, training_mask, shrink_ratio)
             score_maps.append(score_map)
         score_maps = np.array(score_maps, dtype=np.float32)
-        data["labels"] = score_maps
-        data["training_mask"] = training_mask
+        data["gt"] = score_maps
+        data["mask"] = training_mask
         return data
-
-
 
     def generate_rbox(self,im_size,text_polys, text_tags, training_mask, shrink_ratio):
         """
@@ -133,19 +133,133 @@ class GenerateTrainMask(object):
         for i, (poly, tag) in enumerate(zip(text_polys, text_tags)):
             try:
                 poly = poly.astype(np.int)
-                # d_i = cv2.contourArea(poly) * (1 - shrink_ratio * shrink_ratio) / cv2.arcLength(poly, True)
-                d_i = cv2.contourArea(poly) * (1 - shrink_ratio) / cv2.arcLength(poly, True) + 0.5
+                d_i = cv2.contourArea(poly) * (1 - shrink_ratio * shrink_ratio) / cv2.arcLength(poly, True)
+                # d_i = cv2.contourArea(poly) * (1 - shrink_ratio) / cv2.arcLength(poly, True) + 0.5
                 pco = pyclipper.PyclipperOffset()
                 pco.AddPath(poly, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
                 shrinked_poly = np.array(pco.Execute(-d_i))
-                cv2.fillPoly(score_map, shrinked_poly, i + 1)
+                cv2.fillPoly(score_map, shrinked_poly, 1)
                 if not tag:
                     cv2.fillPoly(training_mask, shrinked_poly, 0)
             except:
-                print(poly)
+                continue
         return score_map, training_mask
 
 
+@PIPELINES.register_module
+class MakeBorderMap(object):
+    """
+    DB detector 生成训练时候文字区域的边界区域mask
+    """
+    def __init__(self,shrink_ratio=0.4,thresh_min=0.3,thresh_max = 0.7):
+        self.thresh_min = thresh_min
+        self.thresh_max = thresh_max
+        self.shrink_ratio = shrink_ratio
+
+    def __call__(self,data:dict):
+        h, w, c = data["img"].shape
+        text_polys = data["gt_polys"]
+        text_tags = data["gt_tags"]
+        canvas = np.zeros((h,w), dtype=np.float32)
+        mask = np.zeros((h,w), dtype=np.float32)
+
+        for i in range(len(text_polys)):
+            if not text_tags[i]:
+                continue
+            self.draw_border_map(text_polys[i], canvas, mask=mask)
+        canvas = canvas * (self.thresh_max - self.thresh_min) + self.thresh_min
+
+        """distance cv2 优化：
+        d_i = cv2.contourArea(poly) * abs(1 - shrink_ratio*shrink_ratio) / cv2.arcLength(poly, True)
+        cv2.polylines(canvas, [np.vstack([poly,poly[0]])], 0, 0, 1)
+        canvas = canvas.astype(np.uint8)
+        canvas = cv2.distanceTransform(canvas, cv2.DIST_L2, 5)
+        canvas = np.float32(np.array(canvas))
+        canvas = np.abs(canvas - d_i)
+        canvas[score_map == i+1] = d_i
+        canvas = 1 - np.clip(canvas / d_i, 0, 1)
+        """
+        data["thresh_map"] = canvas
+        data["thresh_mask"] = mask
+        return data
+
+    def draw_border_map(self, text_poly:np.ndarray, canvas:np.ndarray, mask:np.ndarray):
+        assert text_poly.ndim == 2
+        assert text_poly.shape[1] == 2
+        poly = text_poly.copy().astype(np.int)
+        d_i = cv2.contourArea(poly) * (1 - self.shrink_ratio * self.shrink_ratio) / cv2.arcLength(poly, True)
+        pco = pyclipper.PyclipperOffset()
+        pco.AddPath(poly, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
+        padded_polygon = np.array(pco.Execute(-d_i))
+        if padded_polygon.shape[-1]!=2:
+            '''
+            (0,) 没有边框
+            (1, 4, 2)正常情况下
+            '''
+            return
+        cv2.fillPoly(mask, [padded_polygon.astype(np.int32)], 1.0)
+
+        xmin = padded_polygon[:, 0].min()
+        xmax = padded_polygon[:, 0].max()
+        ymin = padded_polygon[:, 1].min()
+        ymax = padded_polygon[:, 1].max()
+        width = xmax - xmin + 1
+        height = ymax - ymin + 1
+
+        poly[:, 0] = poly[:, 0] - xmin
+        poly[:, 1] = poly[:, 1] - ymin
+        xs = np.broadcast_to(
+            np.linspace(0, width - 1, num=width).reshape(1, width), (height, width))
+        ys = np.broadcast_to(
+            np.linspace(0, height - 1, num=height).reshape(height, 1), (height, width))
+
+        distance_map = np.zeros(
+            (poly.shape[0], height, width), dtype=np.float32)
+        for i in range(poly.shape[0]):
+            j = (i + 1) % poly.shape[0]
+            absolute_distance = self.distance(xs, ys, poly[i], poly[j])
+            distance_map[i] = np.clip(absolute_distance / d_i, 0, 1)
+        distance_map = distance_map.min(axis=0)
+
+        xmin_valid = min(max(0, xmin), canvas.shape[1] - 1)
+        xmax_valid = min(max(0, xmax), canvas.shape[1] - 1)
+        ymin_valid = min(max(0, ymin), canvas.shape[0] - 1)
+        ymax_valid = min(max(0, ymax), canvas.shape[0] - 1)
+        canvas[ymin_valid:ymax_valid + 1, xmin_valid:xmax_valid + 1] = np.fmax(
+            1 - distance_map[
+                ymin_valid - ymin:ymax_valid - ymax + height,
+                xmin_valid - xmin:xmax_valid - xmax + width],
+            canvas[ymin_valid:ymax_valid + 1, xmin_valid:xmax_valid + 1])
+
+    def distance(self, xs, ys, point_1, point_2):
+        '''
+        compute the distance from point to a line
+        ys: coordinates in the first axis
+        xs: coordinates in the second axis
+        point_1, point_2: (x, y), the end of the line
+        '''
+        square_distance_1 = np.square(
+            xs - point_1[0]) + np.square(ys - point_1[1])
+        square_distance_2 = np.square(
+            xs - point_2[0]) + np.square(ys - point_2[1])
+        square_distance = np.square(
+            point_1[0] - point_2[0]) + np.square(point_1[1] - point_2[1])
+        square_distance = np.where(square_distance==0,1e-4,square_distance)
+
+        #0值替换，避免除0问题
+        square_ = 2 * np.sqrt(square_distance_1 * square_distance_2)
+        square_ = np.where(square_==0,1e-4,square_)
+
+        cosin = (square_distance - square_distance_1 - square_distance_2) / \
+                (square_)
+        square_sin = 1 - np.square(cosin)
+        square_sin = np.nan_to_num(square_sin)
+        result = np.sqrt(square_distance_1 * square_distance_2 *
+                         square_sin / square_distance)
+
+        result[cosin < 0] = np.sqrt(np.fmin(
+            square_distance_1, square_distance_2))[cosin < 0]
+        return result
 
 
 @PIPELINES.register_module

@@ -55,9 +55,9 @@ test_pipeline = [
     dict(type='Collect', keys=['img']),
 ]
 
-##128每张显存 2613MiB,256:5207MiB
+##128每张显存 4941MiB
 data = dict(
-    imgs_per_gpu=16,
+    imgs_per_gpu=128,
     workers_per_gpu=2,
     train=dict(
         type=dataset_type,
@@ -103,4 +103,5 @@ log_level = 'INFO'
 work_dir = './work_dirs/fourstage_tps_resnet_attention_chinese_iter_nofixed/'
 load_from = None
 resume_from = None
+
 workflow = [('train', 1)]

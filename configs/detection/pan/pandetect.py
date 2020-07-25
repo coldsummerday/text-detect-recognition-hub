@@ -37,9 +37,9 @@ train_pipeline = [
     dict(type="DetectResize",img_scale=(640,640)),
     dict(type="RandomFlip",flip_ratio=0.3),
     dict(type="RandomRotate",degrees=10),
-    dict(type="GenerateTrainMask"),
+    dict(type="GenerateTrainMask",shrink_ratio_list=[1,0.4]),
     dict(type="Ndarray2tensor"),
-    dict(type='Collect', keys=['img','labels',"training_mask"]),
+    dict(type='Collect', keys=['img','gt',"mask"]),
 ]
 
 test_pipeline = [

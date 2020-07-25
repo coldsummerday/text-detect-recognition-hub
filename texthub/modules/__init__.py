@@ -8,10 +8,10 @@ from .registry import BACKBONES,NECKS,HEADS,RECOGNIZERS
 from .recognizer import *
 from .backbones import *
 from .imgtransformation import *
-from .label_heads import *
+from .rec_heads import *
 from .sequencerecognition import *
 from .detectors import *
-from .heads import *
+from .det_heads import *
 from .necks import *
 __all__ = [
     'BACKBONES', 'NECKS' , 'HEADS',

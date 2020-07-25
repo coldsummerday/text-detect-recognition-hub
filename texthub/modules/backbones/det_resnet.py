@@ -61,7 +61,7 @@ def gnnorm2d(num_channels, num_groups=32):
 class BaseResNet(nn.Module):
     def __init__(self, block, layers, in_channels=3,zero_init_residual=False,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
-                 norm_layer=None):
+                 norm_layer=None,stage_with_dcn=[False,False,False,False],dcn_config:dict=None):
         super(BaseResNet, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
@@ -83,17 +83,17 @@ class BaseResNet(nn.Module):
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0])
+        self.layer1 = self._make_layer(block, 64, layers[0],with_dcn=stage_with_dcn[0],dcn_config=dcn_config)
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
-                                       dilate=replace_stride_with_dilation[0])
+                                       dilate=replace_stride_with_dilation[0],with_dcn=stage_with_dcn[1],dcn_config=dcn_config)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
-                                       dilate=replace_stride_with_dilation[1])
+                                       dilate=replace_stride_with_dilation[1],with_dcn=stage_with_dcn[2],dcn_config=dcn_config)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
-                                       dilate=replace_stride_with_dilation[2])
+                                       dilate=replace_stride_with_dilation[2],with_dcn=stage_with_dcn[3],dcn_config=dcn_config)
 
 
 
-    def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
+    def _make_layer(self, block, planes, blocks, stride=1, dilate=False,with_dcn:bool=False,dcn_config:dict=None):
         norm_layer = self._norm_layer
         downsample = None
         previous_dilation = self.dilation
@@ -108,12 +108,12 @@ class BaseResNet(nn.Module):
 
         layers = []
         layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
-                            self.base_width, previous_dilation, norm_layer))
+                            self.base_width, previous_dilation, norm_layer,with_dcn=with_dcn,dcn_config=dcn_config))
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
             layers.append(block(self.inplanes, planes, groups=self.groups,
                                 base_width=self.base_width, dilation=self.dilation,
-                                norm_layer=norm_layer))
+                                norm_layer=norm_layer,with_dcn=with_dcn,dcn_config=dcn_config))
 
         return nn.Sequential(*layers)
 
@@ -143,7 +143,7 @@ class DetResNet(BaseResNet):
     """
     def __init__(self,depth:int,arch:str,norm="gn",in_channels=3,zero_init_residual=False,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
-                ):
+                stage_with_dcn=[False,False,False,False],dcn_config:dict=None):
         assert depth in (18,34,50,101,152)
         assert arch in ('resnet18','resnet34','resnet50','resnet101','resnet152','resnext50_32x4d','resnext101_32x8d')
 
@@ -172,12 +172,14 @@ class DetResNet(BaseResNet):
             "zero_init_residual":zero_init_residual,
             "groups":groups,
             "width_per_group":width_per_group,
-            "replace_stride_with_dilation":replace_stride_with_dilation
+            "replace_stride_with_dilation":replace_stride_with_dilation,
+            "stage_with_dcn":stage_with_dcn,
+            "dcn_config":dcn_config
         }
         super(DetResNet, self).__init__(block, layers, **kwargs)
 
 
-        def init_weights(pretrained=None):
+        def init_weights(self,pretrained=None):
             if pretrained is None:
                 for m in self.modules():
                     if isinstance(m, nn.Conv2d):

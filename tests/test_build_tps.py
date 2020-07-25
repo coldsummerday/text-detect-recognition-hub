@@ -1,7 +1,7 @@
 import  numpy as np
 import  torch
 from tests.resnet_aster import ResNet_ASTER
-from texthub.modules.label_heads.asterheads import AsterAttentionRecognitionHead
+from texthub.modules.rec_heads.asterheads import AsterAttentionRecognitionHead
 from texthub.datasets import CharsetDict
 
 ChineseCharset = CharsetDict["ChineseCharset"]
