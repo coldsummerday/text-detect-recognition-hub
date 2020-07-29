@@ -22,15 +22,14 @@ model = dict(
         inner_channels=256,
         neck_out_channels=256 // 4,
         k=50,
-        thresh=0.3,
-        score_thresh=0.5,
         max_candidates=1000,
     )
 )
 train_cfg = dict()
 test_cfg = dict()
 dataset_type = 'IcdarDetectDataset'
-data_root = '/data/zhb/data/receipt/end2end/receipt_2nd_icdr15/'
+data_root = '/data/zhb/data/receipt/end2end/icdar2017rctw/train'
+secon_data_root = '/data/zhb/data/receipt/end2end/receipt_2nd_icdr15/'
 val_data_root = '/data/zhb/data/receipt/end2end/receipt_2nd_icdr15val/'
 train_pipeline = [
     dict(type="CheckPolys"),
@@ -57,25 +56,40 @@ val_pipeline = [
 data = dict(
     imgs_per_gpu=8,
     workers_per_gpu=4,
+    # train=dict(
+    #     type=dataset_type,
+    #     root=data_root,
+    #     pipeline = train_pipeline,
+    #     img_channel=3,
+    #     ),
     train=dict(
-        type=dataset_type,
-        root=data_root,
-        pipeline = train_pipeline,
-        img_channel=3,
-        line_flag = False
-        ),
+        type="RatioBalancedDataset",
+        ratio_list=[0.5, 0.5],
+        dataset_cfg_list=[
+            dict(
+                    type=dataset_type,
+                    root=data_root,
+                    pipeline = train_pipeline,
+                    img_channel=3,
+            ),
+            dict(
+                type=dataset_type,
+                root=secon_data_root,
+                pipeline=train_pipeline,
+                img_channel=3,
+                line_flag=False,##icdar15 format
+            ),
+        ]),
     val = dict(
         type=dataset_type,
         root=val_data_root,
         pipeline = train_pipeline,
         img_channel=3,
-        line_flag = False
         ),
     test=dict(
         type=dataset_type,
         root=val_data_root,
         pipeline = train_pipeline,
-        line_flag = False
         )
 )
 # optimizer
@@ -105,7 +119,7 @@ log_config = dict(
 seed = 1211
 total_iters = 1000000
 log_level = 'INFO'
-work_dir = './work_dirs/db_resnet18_deform/'
+work_dir = './work_dirs/db_resnet18_deform_icdar/'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]

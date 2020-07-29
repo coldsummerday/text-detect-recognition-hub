@@ -187,6 +187,8 @@ class MakeBorderMap(object):
         assert text_poly.ndim == 2
         assert text_poly.shape[1] == 2
         poly = text_poly.copy().astype(np.int)
+        if cv2.arcLength(poly,True)==0:
+            return
         d_i = cv2.contourArea(poly) * (1 - self.shrink_ratio * self.shrink_ratio) / cv2.arcLength(poly, True)
         pco = pyclipper.PyclipperOffset()
         pco.AddPath(poly, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
@@ -405,6 +407,8 @@ class DetectResize(object):
         if "gt_polys" in data.keys():
             ##gt_polys (n,4,2),4个点(x,y)
             text_polys = data.get("gt_polys")
+            if len(text_polys)==0:
+                return
             text_polys = text_polys.astype(np.float32)
             w_scale = self.img_scale[0] / float(ori_w)
             h_scale = self.img_scale[1] / float(ori_h)

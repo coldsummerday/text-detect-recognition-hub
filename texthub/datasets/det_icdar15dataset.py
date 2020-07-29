@@ -7,21 +7,34 @@ from .registry import DATASETS
 from .pipelines import Compose
 import os
 import cv2
-
 @DATASETS.register_module
 class IcdarDetectDataset(Dataset):
-    def __init__(self,root:str,pipeline, img_channel=3,img_prefix = "imgs",gt_prefix="gts/"):
-
+    def __init__(self,root:str,pipeline, img_channel=3,img_prefix = "imgs",gt_prefix="gts",line_flag=True):
+        """
+        if line_flag ==True,390,902,1856,902,1856,1225,390,1225,0,"金氏眼镜"
+        Flase:237,48,237,75,322,75,322,48,明天
+        """
         self.root = root
         self.img_channel = img_channel
+        self.line_flag = line_flag
 
         self.img_path_fmt = os.path.join(root,img_prefix,"{}.jpg")
-        self.gt_path_fmt = os.path.join(root,gt_prefix,"gt_{}.txt")
+        self.gt_path_fmt = os.path.join(root,gt_prefix,"{}.txt")
         self.ids_list = self.load_index(root)
         self.pipeline = Compose(pipeline)
 
 
     def load_index(self,root_dir:str):
+        """
+        数据格式
+        img/image_1.jpg
+        img/image_2.jpg
+        img/image_2.jpg
+        ```
+
+        gts/image_1.txt
+        gts/image_2.txt
+        """
         imgids = os.listdir(os.path.join(root_dir,'imgs'))
         imgids = [os.path.splitext(imgid)[0] for imgid in imgids]
         #check if gt exist
@@ -32,6 +45,10 @@ class IcdarDetectDataset(Dataset):
         return exist_imgs
 
     def _get_annotation(self, img_id: str) -> tuple:
+        """
+        icdar2017rctw fromat:390,902,1856,902,1856,1225,390,1225,0,"金氏眼镜"
+        icdar2015 format:237,48,237,75,322,75,322,48,明天
+        """
         boxes = []
         text_tags = []
         label_path = self.gt_path_fmt.format(img_id)
@@ -42,15 +59,37 @@ class IcdarDetectDataset(Dataset):
                     box = order_points_clockwise(np.array(list(map(float, params[:8]))).reshape(-1, 2))
                     if cv2.arcLength(box, True) > 0:
                         boxes.append(box)
-                        label = params[8]
-                        if label == '*' or label == '###':
-                            text_tags.append(False)
-                        else:
-                            text_tags.append(True)
+                        text_tag,text_label = self._get_lable(params)
+
+                        text_tags.append(text_tag)
+                        # label = params[8]
+                        # if label == '*' or label == '###':
+                        #     text_tags.append(False)
+                        # else:
+                        #     text_tags.append(True)
                 except Exception as e:
                     print_log('load label failed on {}'.format(label_path))
                     print_log(str(e))
         return np.array(boxes, dtype=np.float32), np.array(text_tags, dtype=np.bool)
+    def _get_lable(self,label_line_params:list):
+        if self.line_flag:
+            text_tag = label_line_params[8]
+            text_label = label_line_params[9]
+            #去除引号
+            text_label = text_label[1:-1]
+            if text_tag=='1':
+                text_tag=False
+            else:
+                text_tag = True
+        else:
+            text_label = label_line_params[8]
+            if text_label=="*" or text_label=='###':
+                text_tag = False
+            else:
+                text_tag = True
+        return text_tag,text_label
+
+
 
     def __getitem__(self, index):
         img_id = self.ids_list[index]

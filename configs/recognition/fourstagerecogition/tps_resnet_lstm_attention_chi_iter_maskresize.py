@@ -39,7 +39,7 @@ test_cfg = dict()
 
 train_pipeline = [
     dict(type='ResizeRecognitionImageCV2', img_scale=(32,100),img_channel=1),
-    dict(type='RecognitionImageCV2Tensor',img_channel=1,),
+    dict(type='RecognitionImageCV2Tensor',img_channel=1),
     dict(type="AttentionLabelEncode",charsets=charsets,batch_max_length=max_len_labels),
     dict(type='Collect', keys=['img', 'label',"ori_label"]),
 ]

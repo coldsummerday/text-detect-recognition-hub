@@ -98,6 +98,7 @@ log_config = dict(
     ])
 # yapf:enable
 # runtime settings
+seed = 1211
 total_iters = 300000
 log_level = 'INFO'
 work_dir = './work_dirs/tps_vgg_lstm_attention_3rdicdar/'

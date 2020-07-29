@@ -150,7 +150,7 @@ class LrUpdaterHook(BaseHook):
 
 
 class ExpIterdecayLrUpdaterHook(BaseHook):
-    def __init__(self,interval=1000,power_decay = 0.9,min_lr=0.007):
+    def __init__(self,interval=1000,power_decay = 0.9,min_lr=0.007,by_epoch=False):
         self.interval = interval
         self.power_decay = power_decay
         self.min_lr = min_lr

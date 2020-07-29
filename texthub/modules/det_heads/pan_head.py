@@ -52,7 +52,7 @@ class PanHead(nn.Module):
         for batch_preds in preds:
             _, boxes_list = decode(batch_preds)
             batch_bbox_list.append(boxes_list)
-        return batch_bbox_list
+        return batch_bbox_list,[] #bbox,scores
 
     def init_weights(self, pretrained=None):
         pass

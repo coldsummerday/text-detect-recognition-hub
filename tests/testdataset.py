@@ -10,7 +10,8 @@ from texthub.datasets import build_dataset
 import  torch
 from PIL import Image
 from torchvision import transforms
-config_file = "./configs/recognition/fourstagerecogition/tps_resnet_lstm_attention_chi_iter_maskresize.py"
+# config_file = "./configs/recognition/fourstagerecogition/tps_resnet_lstm_attention_chi_iter_maskresize.py"
+config_file = "./configs/detection/DB/resnet18_deform.py"
 cfg = Config.fromfile(config_file)
 ##
 
@@ -24,7 +25,7 @@ dataset = build_dataset(cfg.data.train)
 import torch
 b=torch.utils.data.DataLoader(
             dataset,
-            batch_size=256,
+            batch_size=4,
             num_workers=4,
             shuffle=False,
             pin_memory=True

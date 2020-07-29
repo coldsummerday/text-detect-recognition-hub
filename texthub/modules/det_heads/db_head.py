@@ -16,11 +16,12 @@ class DBHead(nn.Module):
            serial: If true, thresh prediction will combine segmentation result as input.
     """
     def __init__(self,inner_channels = 256,neck_out_channels=256//4,
-                k=5,thresh:float=0.3,score_thresh=0.7,min_size=3,
+                k=10,thresh:float=0.3,score_thresh=0.5,min_size=3,
                 bias=False,
                 smooth=False,
                 serial=False,
                 max_candidates=1000,
+                 is_output_polygon =True,
                  *args, **kwargs):
         super(DBHead, self).__init__()
         self.max_candidates = max_candidates
@@ -30,6 +31,7 @@ class DBHead(nn.Module):
         self.score_thresh = score_thresh
         self.min_size = min_size
         self.serial = serial
+        self.is_output_polygon = is_output_polygon
         #对neck融合的特征生成二值化图像
         self.binarize_layer = nn.Sequential(
             nn.Conv2d(inner_channels, self.neck_out_channels, kernel_size=3, padding=1, bias=bias),
@@ -85,7 +87,7 @@ class DBHead(nn.Module):
         return loss_result
 
 
-    def postprocess(self, pred:torch.Tensor,is_output_polygon=True):
+    def postprocess(self, pred:torch.Tensor):
         """
         :param binary:
         :return:
@@ -100,12 +102,15 @@ class DBHead(nn.Module):
         boxes_batch = []
         scores_batch = []
         for batch_index in range(batches):
-            if is_output_polygon:
+            if self.is_output_polygon:
                 boxes, scores = self.polygons_from_bitmap(
                     pred[batch_index],segmentation[batch_index])
+            else:
+                boxes, scores = self.boxes_from_bitmap(pred[batch_index],segmentation[batch_index])
             boxes_batch.append(boxes)
             scores_batch.append(scores)
         return boxes_batch,scores_batch
+        # return boxes_batch
 
     def polygons_from_bitmap(self,pred:torch.Tensor,segmentation:torch.Tensor):
         '''
@@ -122,7 +127,6 @@ class DBHead(nn.Module):
         contours, _ = cv2.findContours(
             (segmentation * 255).astype(np.uint8),
             cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-
         for contour in contours[:self.max_candidates]:
             epsilon = 0.01 * cv2.arcLength(contour, True)
             approx = cv2.approxPolyDP(contour, epsilon, True)
@@ -130,14 +134,20 @@ class DBHead(nn.Module):
             if points.shape[0]<4:
                 continue
             score = self.box_score_fast(pred, points.reshape(-1, 2))
+
             if score < self.score_thresh:
                 continue
-            if points.shape[0] < 2:
-                continue
-            box = self.unclip(points, unclip_ratio=2.0)
-            if len(box) > 1:
+
+
+            if points.shape[0] > 2:
+                box = self.unclip(points, unclip_ratio=2.0)
+
+                if len(box) < 1 :
+                    continue
+            else:
                 continue
             box = box.reshape(-1, 2)
+
             #得到该polygon 的bouding box的小的边长，边长过小的实例丢弃
             _, sside = self.get_mini_boxes(box.reshape((-1, 1, 2)))
 
@@ -150,8 +160,57 @@ class DBHead(nn.Module):
             #     np.round(box[:, 1] / height * dest_height), 0, dest_height)
             boxes.append(box)
             scores.append(score)
+
+
         return boxes,scores
 
+    def boxes_from_bitmap(self,pred:torch.Tensor,segmentation:torch.Tensor):
+        '''
+                        segmentation: single map with shape (1, H, W),
+                            whose values are binarized as {0, 1}
+                '''
+        assert segmentation.size(0) == 1
+        segmentation = segmentation.cpu().numpy()[0]
+        pred = pred.cpu().detach().numpy()[0]
+
+        contours, _ = cv2.findContours(
+            (segmentation * 255).astype(np.uint8),
+            cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
+        num_contours = min(len(contours), self.max_candidates)
+        boxes = np.zeros((num_contours, 4, 2), dtype=np.float32)
+        scores = np.zeros((num_contours,), dtype=np.float32)
+
+        for index in range(num_contours):
+            contour = contours[index]
+            points, sside = self.get_mini_boxes(contour)
+            if sside < self.min_size:
+                continue
+            points = np.array(points)
+            score = self.box_score_fast(pred, points.reshape(-1, 2))
+
+            if score < self.score_thresh:
+                continue
+
+            box = self.unclip(points).reshape(-1, 1, 2)
+            box, sside = self.get_mini_boxes(box)
+
+            if sside < self.min_size + 2:
+                continue
+            box = np.array(box)
+            #恢复原来尺寸
+            # box[:, 0] = np.clip(
+            #     np.round(box[:, 0] / width * dest_width), 0, dest_width)
+            # box[:, 1] = np.clip(
+            #     np.round(box[:, 1] / height * dest_height), 0, dest_height)
+
+            boxes[index, :, :] = box.astype(np.int16)
+            scores[index] = score
+        return boxes, scores
+
+
+
+    ##扩大两倍,TODO:BUG有问题，导致没有全为0，需要重写
     def unclip(self, box:np.ndarray, unclip_ratio=1.5):
         """
         box :(N,2)
@@ -160,7 +219,7 @@ class DBHead(nn.Module):
         distance = cv2.contourArea(poly) * unclip_ratio/ cv2.arcLength(poly, True)
         offset = pyclipper.PyclipperOffset()
         offset.AddPath(poly, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
-        expanded = np.array(offset.Execute(-distance))
+        expanded = np.array(offset.Execute(distance))
         return expanded
 
 
@@ -206,6 +265,7 @@ class DBHead(nn.Module):
             return nn.ConvTranspose2d(in_channels, out_channels, 2, 2)
 
     def get_mini_boxes(self, contour):
+
         bounding_box = cv2.minAreaRect(contour)
         points = sorted(list(cv2.boxPoints(bounding_box)), key=lambda x: x[0])
 

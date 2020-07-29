@@ -103,18 +103,25 @@ def inference_detector(model,img:str):
     # forward the model
     with torch.no_grad():
         preds = model(data_dict,return_loss=False)
+    pred_bbox_list,score_bbox_list = model.postprocess(preds)
 
-    pred_bbox_list = model.postprocess(preds)
-
-    #pred_bbox_list(b,n,4,2)  [(x1,y1),(x2,y2),(x3,y3),(x4,y4)]
+    #pred_bbox_list(b,n,4,2)  [(x1,y1),(x2,y2),(x3,y3),(x4,y4)] for bbox model
     batch_pred_bbox = pred_bbox_list[0]
 
-    ## change the  bbox to origin shape
     w_scale = float(ori_w) / new_w
     h_scale = float(ori_h) / new_h
 
-    batch_pred_bbox[:,:,0] *=w_scale
-    batch_pred_bbox[:, :, 1] *= h_scale
+    if type(batch_pred_bbox)==np.ndarray:
+        ##bbox 情况，其4个点个数稳定
+        batch_pred_bbox[:,:,0] *=w_scale
+        batch_pred_bbox[:, :, 1] *= h_scale
+    else:
+        #polygon
+        for polygon_array  in batch_pred_bbox:
+            polygon_array[:, 0] = np.clip(
+                np.round(polygon_array[:, 0] / new_w * ori_w), 0, ori_w)
+            polygon_array[:, 1] = np.clip(
+                np.round(polygon_array[:, 1] / new_h * ori_h), 0, ori_h)
 
     return batch_pred_bbox
 

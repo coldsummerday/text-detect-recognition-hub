@@ -28,7 +28,7 @@ class ResizeRecognitionImageCV2(object):
 
 
     def __call__(self, data:{}):
-
+        #应该添加竖排文字图像的处理
         # img
         img = data["img"]
         if img.ndim==2:
