@@ -33,10 +33,9 @@ def model_inference(model,data_loader,get_pred_func:Callable,get_gt_func:Callabl
         with torch.no_grad():
             result = model(data=data,return_loss=False)
         if type(model) == DataParallel or type(model) == DistributedDataParallel:
-            result = model.module.postprocess(result)
+            result,scores = model.module.postprocess(result)
         else:
-            result = model.postprocess(result)
-
+            result,scores = model.postprocess(result)
         results.extend(get_pred_func(result))
         gt = get_gt_func(data)
         gts.extend(gt)

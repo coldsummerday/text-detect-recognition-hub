@@ -1,12 +1,9 @@
 
 import numpy as np
-from queue import Queue
 import cv2
 import torch
 import torch.nn as nn
-import itertools
 from ..registry import HEADS
-import Polygon as plg
 import pyclipper
 @HEADS.register_module
 class DBHead(nn.Module):
@@ -138,14 +135,15 @@ class DBHead(nn.Module):
             if score < self.score_thresh:
                 continue
 
-
-            if points.shape[0] > 2:
-                box = self.unclip(points, unclip_ratio=2.0)
-
-                if len(box) < 1 :
-                    continue
-            else:
+            if points.shape[0]<2:
                 continue
+
+            box = self.unclip(points, unclip_ratio=2.0)
+
+            if len(box) < 1:
+                continue
+
+
             box = box.reshape(-1, 2)
 
             #得到该polygon 的bouding box的小的边长，边长过小的实例丢弃
@@ -210,16 +208,30 @@ class DBHead(nn.Module):
 
 
 
-    ##扩大两倍,TODO:BUG有问题，导致没有全为0，需要重写
+
     def unclip(self, box:np.ndarray, unclip_ratio=1.5):
         """
         box :(N,2)
+
+        The Clipper library uses integers instead of floating point values to preserve numerical robustness
         """
         poly = box.copy().astype(np.int)
         distance = cv2.contourArea(poly) * unclip_ratio/ cv2.arcLength(poly, True)
         offset = pyclipper.PyclipperOffset()
         offset.AddPath(poly, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
-        expanded = np.array(offset.Execute(distance))
+        # expanded = np.array(offset.Execute(distance)) #offset.Execute(distance)有时候会有两个结果
+        polygon_expanded = offset.Execute(distance)
+        ##收缩放大后可能产生多个区域，选择点个数最多的那个多边形（暂时最大
+        if len(polygon_expanded)>1:
+            max_len= 0
+            max_polygon =None
+            for expanded_poly in polygon_expanded:
+                if len(expanded_poly) > max_len:
+                    max_len = len(expanded_poly)
+                    max_polygon = expanded_poly
+            expanded = np.array(max_polygon)
+        else:
+            expanded = np.array(polygon_expanded)
         return expanded
 
 
@@ -265,7 +277,6 @@ class DBHead(nn.Module):
             return nn.ConvTranspose2d(in_channels, out_channels, 2, 2)
 
     def get_mini_boxes(self, contour):
-
         bounding_box = cv2.minAreaRect(contour)
         points = sorted(list(cv2.boxPoints(bounding_box)), key=lambda x: x[0])
 

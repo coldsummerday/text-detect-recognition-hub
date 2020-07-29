@@ -123,7 +123,7 @@ def inference_detector(model,img:str):
             polygon_array[:, 1] = np.clip(
                 np.round(polygon_array[:, 1] / new_h * ori_h), 0, ori_h)
 
-    return batch_pred_bbox
+    return batch_pred_bbox,score_bbox_list
 
 
 

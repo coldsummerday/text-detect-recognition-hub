@@ -50,12 +50,13 @@ class PanHead(nn.Module):
         """
         batch_bbox_list = []
         for batch_preds in preds:
-            _, boxes_list = decode(batch_preds)
+            _, boxes_list,score_array = decode(batch_preds)
             batch_bbox_list.append(boxes_list)
-        return batch_bbox_list,[] #bbox,scores
+        return batch_bbox_list,score_array #bbox,scores
 
     def init_weights(self, pretrained=None):
         pass
+
 
 
 
@@ -394,6 +395,7 @@ def decode(preds, scale=1, threshold=0.7311, min_area=5):
     pred = pred.reshape(text.shape)
 
     bbox_list = []
+    bbox_score_list =[]
     label_points = get_points(pred, score, label_num)
 
     for label_value, label_point in label_points.items():
@@ -409,10 +411,34 @@ def decode(preds, scale=1, threshold=0.7311, min_area=5):
         if score_i < 0.93:
             continue
         rect = cv2.minAreaRect(points)
+
+
         bbox = cv2.boxPoints(rect)
+        bbox_score = box_score_fast(text.astype(np.uint8), bbox)
         bbox_list.append([bbox[1], bbox[2], bbox[3], bbox[0]])
+        bbox_score_list.append(bbox_score)
     # preds是返回的mask
-    return pred, np.array(bbox_list)
+    return pred, np.array(bbox_list),np.array(bbox_score_list)
+
+def box_score_fast(bitmap:np.ndarray, _box:np.ndarray):
+    """
+    从概率图中得到某个polygon的得分，即统计polygon内bitmap的均值
+    bitmap:(H, W)
+    _box:(N,2)
+    """
+    h, w = bitmap.shape[:2]
+    box = _box.copy()
+    xmin = np.clip(np.floor(box[:, 0].min()).astype(np.int), 0, w - 1)
+    xmax = np.clip(np.ceil(box[:, 0].max()).astype(np.int), 0, w - 1)
+    ymin = np.clip(np.floor(box[:, 1].min()).astype(np.int), 0, h - 1)
+    ymax = np.clip(np.ceil(box[:, 1].max()).astype(np.int), 0, h - 1)
+
+    mask = np.zeros((ymax - ymin + 1, xmax - xmin + 1), dtype=np.uint8)
+    box[:, 0] = box[:, 0] - xmin
+    box[:, 1] = box[:, 1] - ymin
+    cv2.fillPoly(mask, box.reshape(1, -1, 2).astype(np.int32), 1)
+    return cv2.mean(bitmap[ymin:ymax+1, xmin:xmax+1], mask)[0]
+
 
 
 def decode_dice(preds, scale=1, threshold=0.7311, min_area=5):

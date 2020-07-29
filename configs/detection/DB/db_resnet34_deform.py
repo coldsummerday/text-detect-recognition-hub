@@ -3,8 +3,8 @@ model = dict(
     pretrained=None,
     backbone=dict(
         type="DetResNet",
-        depth=18,
-        arch="resnet18",
+        depth=34,
+        arch="resnet34",
         norm="gn",
         stage_with_dcn=[False, True, True, True],
         dcn_config=dict(
@@ -14,7 +14,7 @@ model = dict(
     ),
     neck=dict(
         type="SegDBNeck",
-        in_channels=[64,128,256,512],
+        in_channels=[64, 128, 256, 512],
         inner_channels = 256,
     ),
     det_head=dict(
@@ -22,8 +22,8 @@ model = dict(
         inner_channels=256,
         neck_out_channels=256 // 4,
         k=50,
-        thresh=0.2,
-        score_thresh=0.7,
+        thresh=0.3,
+        score_thresh=0.5,
         max_candidates=1000,
     )
 )
@@ -93,7 +93,7 @@ lr_config = dict(
     power_decay = 0.9,
     min_lr=0.005,
 )
-checkpoint_config = dict(interval=10000) ##save_mode true->epoch, false->iter
+checkpoint_config = dict(interval=30000) ##save_mode true->epoch, false->iter
 dist_params = dict(backend='nccl')
 # yapf:disable
 log_config = dict(
@@ -104,9 +104,9 @@ log_config = dict(
     ])
 
 seed = 1211
-total_iters = 1000000
+total_iters = 300000
 log_level = 'INFO'
-work_dir = './work_dirs/db_resnet18_deform/'
+work_dir = './work_dirs/db_resnet34_deform/'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]

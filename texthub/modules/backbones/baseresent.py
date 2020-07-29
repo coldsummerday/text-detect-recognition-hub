@@ -91,7 +91,7 @@ class BasicBlock(nn.Module):
 
         return out
 
-
+##TODO:BUG 是否downsample条件出错
 class Bottleneck(nn.Module):
     expansion = 4
 
