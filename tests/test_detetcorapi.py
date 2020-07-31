@@ -10,10 +10,10 @@ from texthub.utils import set_random_seed
 import torch
 
 set_random_seed(12)
-# config_file = "./configs/detection/DB/resnet18_deform.py"
-# checkpoint = "./work_dirs/db_resnet18_deform/epoch_2.pth"
-config_file = "./configs/detection/pan/pandetect.py"
-checkpoint = "./work_dirs/pan/PAN_epoch_22.pth"
+config_file = "./configs/detection/DB/db_resnet34_deform.py"
+checkpoint = "./work_dirs/db_resnet50_deform/iter_60000.pth"
+# config_file = "./configs/detection/pan/pandetect.py"
+# checkpoint = "./work_dirs/pan/PAN_epoch_22.pth"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = init_detector(config_file,checkpoint,device)
 
@@ -39,8 +39,10 @@ img_paths = os.listdir(eval_path)
 for img_id in tqdm(img_paths):
     img_path = os.path.join(eval_path,img_id)
 
-    preds = inference_detector(model,img_path)
-
+    preds,scores = inference_detector(model,img_path)
+    img = cv2.imread(img_path)
+    img = draw_bbox(img, preds)
+    cv2.imwrite("./testimgs/{}".format(img_id),img)
 # img = "/home/zhou/data/data/receipt/end2end/receipt_2nd_icdr15/ori_imgs/12.jpg"
 # preds = inference_detector(model,img)
 # img = cv2.imread(img)

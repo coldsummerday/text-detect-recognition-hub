@@ -36,6 +36,7 @@ class IcdarDetectDataset(Dataset):
         gts/image_2.txt
         """
         imgids = os.listdir(os.path.join(root_dir,'imgs'))
+        imgids = sorted(imgids)
         imgids = [os.path.splitext(imgid)[0] for imgid in imgids]
         #check if gt exist
         exist_imgs = []
@@ -59,7 +60,7 @@ class IcdarDetectDataset(Dataset):
                     box = order_points_clockwise(np.array(list(map(float, params[:8]))).reshape(-1, 2))
                     if cv2.arcLength(box, True) > 0:
                         boxes.append(box)
-                        text_tag,text_label = self._get_lable(params)
+                        text_tag,text_label = self._get_label(params)
 
                         text_tags.append(text_tag)
                         # label = params[8]
@@ -71,7 +72,7 @@ class IcdarDetectDataset(Dataset):
                     print_log('load label failed on {}'.format(label_path))
                     print_log(str(e))
         return np.array(boxes, dtype=np.float32), np.array(text_tags, dtype=np.bool)
-    def _get_lable(self,label_line_params:list):
+    def _get_label(self,label_line_params:list):
         if self.line_flag:
             text_tag = label_line_params[8]
             text_label = label_line_params[9]
@@ -101,12 +102,14 @@ class IcdarDetectDataset(Dataset):
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         # img, score_map, training_mask = image_label(im, text_polys, text_tags, self.input_size,
         #                                                 self.shrink_ratio)
-
         data = {
             "img": img,
             "gt_polys": text_polys,
             "gt_tags":text_tags
         }
+        print(img_id)
+        # data = self.pipeline(data)
+
         return self.pipeline(data)
 
 

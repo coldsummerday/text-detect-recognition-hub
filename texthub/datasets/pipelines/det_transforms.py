@@ -71,7 +71,7 @@ class NormalizePADToTensor(object):
 class Ndarray2tensor(object):
     def __init__(self):
         self.transforms = transforms.ToTensor()
-        pass
+
     def __call__(self,data:dict):
         assert type(data.get("img"))==np.ndarray
         data['img'] = self.transforms(data['img'])
@@ -192,7 +192,7 @@ class MakeBorderMap(object):
         d_i = cv2.contourArea(poly) * (1 - self.shrink_ratio * self.shrink_ratio) / cv2.arcLength(poly, True)
         pco = pyclipper.PyclipperOffset()
         pco.AddPath(poly, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
-        padded_polygon = np.array(pco.Execute(-d_i))
+        padded_polygon = np.array(pco.Execute(d_i)[0])
         if padded_polygon.shape[-1]!=2:
             '''
             (0,) 没有边框
@@ -372,6 +372,28 @@ class RandomFlip(object):
 
 
 
+@PIPELINES.register_module
+class NormalizeImage(object):
+    RGB_MEAN = np.array([122.67891434, 116.66876762, 104.00698793])
+
+    def __call__(self, data:dict):
+
+        assert 'img' in data.keys(), '`img` in data is required by this process'
+        image = data['img']
+        image -= self.RGB_MEAN
+        image /= 255.
+        image = torch.from_numpy(image).permute(2, 0, 1).float()
+        data['img'] = image
+        return data
+
+    @classmethod
+    def restore(self, image):
+        image = image.permute(1, 2, 0).to('cpu').numpy()
+        image = image * 255.
+        image += self.RGB_MEAN
+        image = image.astype(np.uint8)
+        return image
+
 
 
 
@@ -408,7 +430,8 @@ class DetectResize(object):
             ##gt_polys (n,4,2),4个点(x,y)
             text_polys = data.get("gt_polys")
             if len(text_polys)==0:
-                return
+                ##没有GT的情况
+                return data
             text_polys = text_polys.astype(np.float32)
             w_scale = self.img_scale[0] / float(ori_w)
             h_scale = self.img_scale[1] / float(ori_h)
