@@ -107,7 +107,6 @@ class IcdarDetectDataset(Dataset):
             "gt_polys": text_polys,
             "gt_tags":text_tags
         }
-        print(img_id)
         # data = self.pipeline(data)
 
         return self.pipeline(data)

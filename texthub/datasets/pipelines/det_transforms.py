@@ -145,7 +145,6 @@ class GenerateTrainMask(object):
                 continue
         return score_map, training_mask
 
-
 @PIPELINES.register_module
 class MakeBorderMap(object):
     """
@@ -192,7 +191,10 @@ class MakeBorderMap(object):
         d_i = cv2.contourArea(poly) * (1 - self.shrink_ratio * self.shrink_ratio) / cv2.arcLength(poly, True)
         pco = pyclipper.PyclipperOffset()
         pco.AddPath(poly, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
-        padded_polygon = np.array(pco.Execute(d_i)[0])
+        padded_polygon_pc = pco.Execute(d_i)
+        if len(padded_polygon_pc)==0:
+            return
+        padded_polygon = np.array(padded_polygon_pc[0])
         if padded_polygon.shape[-1]!=2:
             '''
             (0,) 没有边框
@@ -227,11 +229,15 @@ class MakeBorderMap(object):
         xmax_valid = min(max(0, xmax), canvas.shape[1] - 1)
         ymin_valid = min(max(0, ymin), canvas.shape[0] - 1)
         ymax_valid = min(max(0, ymax), canvas.shape[0] - 1)
-        canvas[ymin_valid:ymax_valid + 1, xmin_valid:xmax_valid + 1] = np.fmax(
+        canvas_fill = np.fmax(
             1 - distance_map[
                 ymin_valid - ymin:ymax_valid - ymax + height,
                 xmin_valid - xmin:xmax_valid - xmax + width],
             canvas[ymin_valid:ymax_valid + 1, xmin_valid:xmax_valid + 1])
+        if not (canvas_fill.shape==canvas[ymin_valid:ymax_valid + 1, xmin_valid:xmax_valid + 1].shape):
+            #填充区shape不一样，（16，0） 与（16，1），证明前一个为空，所以当前不填充
+            return
+        canvas[ymin_valid:ymax_valid + 1, xmin_valid:xmax_valid + 1] = canvas_fill
 
     def distance(self, xs, ys, point_1, point_2):
         '''
@@ -262,7 +268,6 @@ class MakeBorderMap(object):
         result[cosin < 0] = np.sqrt(np.fmin(
             square_distance_1, square_distance_2))[cosin < 0]
         return result
-
 
 @PIPELINES.register_module
 class RandomRotate(object):

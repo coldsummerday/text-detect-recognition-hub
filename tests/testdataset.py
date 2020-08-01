@@ -11,7 +11,7 @@ import  torch
 from PIL import Image
 from torchvision import transforms
 # config_file = "./configs/recognition/fourstagerecogition/tps_resnet_lstm_attention_chi_iter_maskresize.py"
-config_file = "./configs/detection/DB/resnet18_deform.py"
+config_file = "./configs/detection/DB/resnet18_deform_icdar17.py"
 cfg = Config.fromfile(config_file)
 ##
 
@@ -27,7 +27,7 @@ b=torch.utils.data.DataLoader(
     dataset,
     batch_size=1,
     num_workers=1,
-    shuffle=False,
+    shuffle=True,
     pin_memory=True
         )
 def datasetitemn2show(data:dict):
@@ -43,14 +43,14 @@ def datasetitemn2show(data:dict):
 
 
 
-data=b.__iter__().__next__()
+# data=b.__iter__().__next__()
+#
+# datasetitemn2show(data)
 
-datasetitemn2show(data)
-
-# index = 0
-# from tqdm import tqdm
-# for data in tqdm(b):
-#     img_tensors = data["img"]
+index = 0
+from tqdm import tqdm
+for data in tqdm(b):
+    img_tensors = data["img"]
     #尝试是否能读取完
 #     for i in img_tensors:
 #         img = toPILImage(i)
@@ -64,5 +64,4 @@ datasetitemn2show(data)
 #     config_file = "../configs/testdatasetconfig.py"
 #     cfg = Config.fromfile(config_file)
 #     dataset = build_dataset(cfg.data.train)
-
 
