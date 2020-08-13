@@ -5,6 +5,11 @@ import torch
 import torch.nn as nn
 from ..registry import HEADS
 import pyclipper
+
+
+from PIL import Image
+from torchvision import transforms
+
 @HEADS.register_module
 class DBHead(nn.Module):
     """
@@ -62,6 +67,13 @@ class DBHead(nn.Module):
     def forward_test(self,data:dict):
         features = data.get("img")
         binary = self.binarize_layer(features)
+        # thresh = self.thresh_layer(features)
+        # thresh_binary = self.step_function(binary, thresh)
+        # def toPILImage(img_tensor: torch.Tensor) -> Image:
+        #     image = transforms.ToPILImage()(img_tensor)
+        #     return image
+        # toPILImage(thresh_binary[0].clone().cpu()).show()
+
         return binary
 
     def forward_train(self,data:dict):
@@ -78,6 +90,7 @@ class DBHead(nn.Module):
         mask = data.get("mask")
         thresh_map = data.get("thresh_map")
         thresh_mask = data.get("thresh_mask")
+
         #caculate loss
         loss_result = self.loss_fun(binary=binary,gt=gt,mask=mask,
                                     thresh = thresh,thresh_binary=thresh_binary,thresh_map=thresh_map,thresh_mask=thresh_mask)
@@ -96,6 +109,7 @@ class DBHead(nn.Module):
         batches = pred.size(0)
 
         segmentation = self.pred_binarize(pred)
+
         boxes_batch = []
         scores_batch = []
         for batch_index in range(batches):
@@ -321,10 +335,10 @@ class DBHead(nn.Module):
         if pretrained is None:
             for m in self.modules():
                 if isinstance(m, nn.Conv2d):
-                    nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                    nn.init.kaiming_normal_(m.weight)
                 elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                    nn.init.constant_(m.weight, 1)
-                    nn.init.constant_(m.bias, 1e-4)
+                    m.weight.data.fill_(1.)
+                    m.bias.data.fill_(1e-4)
         else:
             pass
 
@@ -378,6 +392,62 @@ class MaskL1Loss(nn.Module):
             loss = (torch.abs(pred[:, 0] - gt) * mask).sum() / mask_sum
             return loss
 
+# class BalanceCrossEntropyLoss(nn.Module):
+#     '''
+#     Balanced cross entropy loss.
+#     Shape:
+#         - Input: :math:`(N, 1, H, W)`
+#         - GT: :math:`(N, 1, H, W)`, same shape as the input
+#         - Mask: :math:`(N, H, W)`, same spatial shape as the input
+#         - Output: scalar.
+#
+#     Examples::
+#
+#         >>> m = nn.Sigmoid()
+#         >>> loss = nn.BCELoss()
+#         >>> input = torch.randn(3, requires_grad=True)
+#         >>> target = torch.empty(3).random_(2)
+#         >>> output = loss(m(input), target)
+#         >>> output.backward()
+#     '''
+#
+#     def __init__(self, negative_ratio=3.0, eps=1e-6):
+#         super(BalanceCrossEntropyLoss, self).__init__()
+#         self.negative_ratio = negative_ratio
+#         self.eps = eps
+#
+#     def forward(self,
+#                 pred: torch.Tensor,
+#                 gt: torch.Tensor,
+#                 mask: torch.Tensor,
+#                 return_origin=False):
+#         '''
+#         Args:
+#             pred: shape :math:`(N, 1, H, W)`, the prediction of network
+#             gt: shape :math:`(N, 1, H, W)`, the target
+#             mask: shape :math:`(N, H, W)`, the mask indicates positive regions
+#         '''
+#         positive = (gt * mask).byte()
+#         negative = ((1 - gt) * mask).byte()
+#         positive_count = int(positive.float().sum())
+#
+#
+#         loss = nn.functional.binary_cross_entropy(
+#             pred, gt, reduction='none')[:, 0, :, :]
+#         positive_loss = loss * positive.float()
+#         negative_loss = loss * negative.float()
+#         negative_count = min(int(negative.float().sum()),
+#                              int(positive_count * self.negative_ratio),negative_loss.nelement())
+#
+#         negative_loss, _ = torch.topk(negative_loss.view(-1),k= negative_count)
+#
+#         balance_loss = (positive_loss.sum() + negative_loss.sum()) /\
+#             (positive_count + negative_count + self.eps)
+#
+#         if return_origin:
+#             return balance_loss, loss
+#         return balance_loss
+
 class BalanceCrossEntropyLoss(nn.Module):
     '''
     Balanced cross entropy loss.
@@ -416,16 +486,13 @@ class BalanceCrossEntropyLoss(nn.Module):
         positive = (gt * mask).byte()
         negative = ((1 - gt) * mask).byte()
         positive_count = int(positive.float().sum())
-
-
+        negative_count = min(int(negative.float().sum()),
+                            int(positive_count * self.negative_ratio))
         loss = nn.functional.binary_cross_entropy(
             pred, gt, reduction='none')[:, 0, :, :]
         positive_loss = loss * positive.float()
         negative_loss = loss * negative.float()
-        negative_count = min(int(negative.float().sum()),
-                             int(positive_count * self.negative_ratio),negative_loss.nelement())
-
-        negative_loss, _ = torch.topk(negative_loss.view(-1),k= negative_count)
+        negative_loss, _ = torch.topk(negative_loss.view(-1), negative_count)
 
         balance_loss = (positive_loss.sum() + negative_loss.sum()) /\
             (positive_count + negative_count + self.eps)
@@ -459,6 +526,8 @@ class L1BalanceCELoss(nn.Module):
                 thresh_map:torch.Tensor,
                 thresh_mask:torch.Tensor
                 ):
+
+
         bce_loss = self.bce_loss(binary, gt, mask)
         thresh_l1_loss = self.l1_loss(thresh, thresh_map, thresh_mask)
         thresh_dice_loss = self.dice_loss(thresh_binary, gt, mask)
@@ -469,15 +538,3 @@ class L1BalanceCELoss(nn.Module):
         )
         return result
 
-    # def forward(self, pred, batch):
-    #     bce_loss = self.bce_loss(pred['binary'], batch['gt'], batch['mask'])
-    #     metrics = dict(bce_loss=bce_loss)
-    #     if 'thresh' in pred:
-    #         l1_loss, l1_metric = self.l1_loss(pred['thresh'], batch['thresh_map'], batch['thresh_mask'])
-    #         dice_loss = self.dice_loss(pred['thresh_binary'], batch['gt'], batch['mask'])
-    #         metrics['thresh_loss'] = dice_loss
-    #         loss = dice_loss + self.l1_scale * l1_loss + bce_loss * self.bce_scale
-    #         metrics.update(**l1_metric)
-    #     else:
-    #         loss = bce_loss
-    #     return loss, metrics

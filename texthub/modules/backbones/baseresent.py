@@ -2,6 +2,8 @@ import torch.nn as nn
 '''
 2020 07 23  changelog:basicblock模块添加dcn
 '''
+import  torchvision.models.resnet
+
 
 def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
     """3x3 convolution with padding"""
@@ -132,6 +134,7 @@ class Bottleneck(nn.Module):
                 width,
                 kernel_size=3,
                 padding=1,
+                stride=stride,
                 deformable_groups=deformable_groups,
                 bias=False)
         self.bn2 = norm_layer(width)

@@ -2,7 +2,7 @@
 import torch
 from torch.nn.parallel import DistributedDataParallel,DataParallel
 
-from ..core.train import Runner,EpochBaseRunner,IterBasedRunner,DataPrefetcher
+from ..core.train import EpochBaseRunner,IterBasedRunner
 from ..utils import get_root_logger
 from ..core.optimizer import build_optimizer
 from ..core.train.Hooks import RecoEvalHook,DistSamplerSeedHook,DistRecoEvalHook,DistOptimizerHook
@@ -106,13 +106,13 @@ def _dist_train(model,
     DistributedSampler就是做这件事的。它为每一个子进程划分出一部分数据集，以避免不同进程之间数据重复。
     """
     data_loaders = [
-        DataPrefetcher(
+
         torch.utils.data.DataLoader(
             ds,
             batch_size= cfg.data.imgs_per_gpu,
             pin_memory=True,
             sampler=DistributedSampler(ds,num_replicas=world_size,rank=rank)
-            )) for ds in dataset
+            ) for ds in dataset
     ]
 
     model = DistributedDataParallel(
@@ -190,14 +190,13 @@ def _non_dist_train(model,
     batch_size = cfg.gpus * cfg.data.imgs_per_gpu
     num_workers = cfg.gpus * cfg.data.workers_per_gpu
     data_loaders = [
-        DataPrefetcher(
         torch.utils.data.DataLoader(
             ds,
             batch_size=batch_size,
             num_workers=num_workers,
             shuffle=True,
             pin_memory=True
-        )) for ds in dataset
+        ) for ds in dataset
     ]
     if torch.cuda.is_available() and cfg.gpus!=0:
         # put model on gpus

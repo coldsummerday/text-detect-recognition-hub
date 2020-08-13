@@ -5,7 +5,7 @@ model = dict(
         type="DetResNet",
         depth=34,
         arch="resnet34",
-        norm="gn",
+        norm="bn",
         stage_with_dcn=[False, True, True, True],
         dcn_config=dict(
             modulated=True,
@@ -22,8 +22,8 @@ model = dict(
         inner_channels=256,
         neck_out_channels=256 // 4,
         k=50,
-        thresh=0.3,
-        score_thresh=0.7,
+        thresh=0.2,
+        score_thresh=0.5,
         max_candidates=1000,
     )
 )
@@ -39,17 +39,17 @@ train_pipeline = [
     dict(type="RandomRotate",degrees=10),
     dict(type="GenerateTrainMask",shrink_ratio_list=[0.4]),
     dict(type="MakeBorderMap"),
-    dict(type="NormalizeImage"),
+    dict(type="Ndarray2tensor"),
     dict(type='Collect', keys=['img','gt',"mask","thresh_map","thresh_mask"]),
 ]
 test_pipeline = [
     dict(type="DetectResize",img_scale=(640,640)),
-    dict(type="NormalizeImage"),
+    dict(type="Ndarray2tensor"),
     dict(type='Collect', keys=['img']),
 ]
 val_pipeline = [
     dict(type="DetectResize",img_scale=(640,640)),
-    dict(type="NormalizeImage"),
+    dict(type="Ndarray2tensor"),
     dict(type="Gt2SameDim",max_label_num = 250),
     dict(type='Collect', keys=['img',"gt_polys"]),
 ]

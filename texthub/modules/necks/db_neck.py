@@ -22,10 +22,10 @@ class SegDBNeck(nn.Module):
         self.up4 = nn.Upsample(scale_factor=2, mode='nearest')
         self.up3 = nn.Upsample(scale_factor=2, mode='nearest')
 
-        self.in5 = nn.Conv2d(in_channels[-1], inner_channels, 1, bias=bias)
-        self.in4 = nn.Conv2d(in_channels[-2], inner_channels, 1, bias=bias)
-        self.in3 = nn.Conv2d(in_channels[-3], inner_channels, 1, bias=bias)
-        self.in2 = nn.Conv2d(in_channels[-4], inner_channels, 1, bias=bias)
+        self.in5 = nn.Conv2d(in_channels[-1], inner_channels, kernel_size=1, bias=bias)
+        self.in4 = nn.Conv2d(in_channels[-2], inner_channels, kernel_size=1, bias=bias)
+        self.in3 = nn.Conv2d(in_channels[-3], inner_channels, kernel_size=1, bias=bias)
+        self.in2 = nn.Conv2d(in_channels[-4], inner_channels, kernel_size=1, bias=bias)
 
         self.out5 = nn.Sequential(
             nn.Conv2d(inner_channels,self.out_channels,kernel_size=3,padding=1,bias=bias),
@@ -67,7 +67,7 @@ class SegDBNeck(nn.Module):
         if pretrained is None:
             for m in self.modules():
                 if isinstance(m, nn.Conv2d):
-                    nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                    nn.init.kaiming_normal_(m.weight)
                 elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
                     nn.init.constant_(m.weight, 1)
                     nn.init.constant_(m.bias, 1e-4)

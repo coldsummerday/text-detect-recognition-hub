@@ -10,8 +10,8 @@ from texthub.utils import set_random_seed
 import torch
 
 set_random_seed(12)
-config_file = "./configs/detection/pan/pandetect.py"
-checkpoint = "./work_dirs/pan/PAN_epoch_24.pth"
+config_file = "./configs/detection/DB/resnet18_deform.py"
+checkpoint = "./work_dirs/db_resnet18_deform/iter_30000.pth"
 # config_file = "./configs/detection/pan/pandetect.py"
 # checkpoint = "./work_dirs/pan/PAN_epoch_22.pth"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -30,25 +30,19 @@ def draw_bbox(img_path, result, color=(255, 0, 0), thickness=2):
         # cv2.line(img_path, tuple(point[2]), tuple(point[3]), color, thickness)
         # cv2.line(img_path, tuple(point[3]), tuple(point[0]), color, thickness)
     return img_path
-
-
-from tqdm import tqdm
-# img = "./testimgs/img_305.jpg"
-eval_path = "/home/zhou/data/data/receipt/end2end/receipt_2nd_icdr15val/imgs/"
-img_paths = os.listdir(eval_path)
-for img_id in tqdm(img_paths):
-    img_path = os.path.join(eval_path,img_id)
-
-    preds,scores = inference_detector(model,img_path)
-    img = cv2.imread(img_path)
-    img = draw_bbox(img, preds)
-    cv2.imwrite("./testimgs/{}".format(img_id),img)
-# img = "/home/zhou/data/data/receipt/end2end/receipt_2nd_icdr15/ori_imgs/12.jpg"
-# preds = inference_detector(model,img)
-# img = cv2.imread(img)
-# img = draw_bbox(img,preds)
 #
-# cv2.imwrite("./testimgs/1.jpeg",img)
-# cv2.imshow("s",img)
-# cv2.waitKey()
-
+#
+from tqdm import tqdm
+img = "/home/zhou/data/data/receipt/end2end/receipt_2nd_icdr15val/imgs/img_9806.jpg"
+preds,scores = inference_detector(model,img)
+#
+# eval_path = "/home/zhou/data/data/receipt/end2end/receipt_2nd_icdr15val/imgs/"
+# img_paths = os.listdir(eval_path)
+# for img_id in tqdm(img_paths):
+#     img_path = os.path.join(eval_path,img_id)
+#
+#     preds,scores = inference_detector(model,img_path)
+#     img = cv2.imread(img_path)
+#     img = draw_bbox(img, preds)
+#     cv2.imwrite("./testimgs/{}".format(img_id),img)
+#

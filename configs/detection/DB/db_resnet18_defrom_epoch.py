@@ -55,7 +55,7 @@ val_pipeline = [
 ]
 
 data = dict(
-    imgs_per_gpu=2,
+    imgs_per_gpu=8,
     workers_per_gpu=4,
     train=dict(
         type=dataset_type,
@@ -89,24 +89,28 @@ optimizer_config = dict()
 ##不使用lr减少
 lr_config = dict(
     policy="ExpIterdecay",
-    interval=5000,
+    interval=200,
     power_decay = 0.9,
     min_lr=0.005,
 )
-checkpoint_config = dict(interval=10000) ##save_mode true->epoch, false->iter
+
 dist_params = dict(backend='nccl')
+# learning policy
+checkpoint_config = dict(interval=10,by_epoch=True)
 # yapf:disable
 log_config = dict(
-    interval=1000,
+    interval=200,
+    by_epoch=True,
     hooks=[
         dict(type='TextLoggerHook'),
         # dict(type='TensorboardLoggerHook')
     ])
-
-seed = 1211
-total_iters = 1000000
+# yapf:enable
+# runtime settings
+seed = 10
+total_epochs = 1200
 log_level = 'INFO'
-work_dir = './work_dirs/db_resnet18_deform/'
+work_dir = './work_dirs/db_resnet18_deform_epoch/'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]

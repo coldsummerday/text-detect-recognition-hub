@@ -78,7 +78,7 @@ class OCRResource(Resource):
         image_bytes = bytearray(image_data)
         image_array = np.asarray(image_bytes)
         cv2_img_array = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-        det_result = inference_detector(self.det_model,cv2_img_array)
+        det_result,score_bbox_list = inference_detector(self.det_model,cv2_img_array)
         result_json_list = []
         for bbox in det_result:
             croped_img = crop_by_poly(img=cv2_img_array, points=bbox)

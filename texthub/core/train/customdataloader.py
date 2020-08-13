@@ -1,13 +1,16 @@
-
+from  torch.utils.data.dataloader import DataLoader
 class DataPrefetcher(object):
     """
     包装dataloader 提前预读文件
     """
-    def __init__(self, loader):
+    def __init__(self, loader:DataLoader):
         self.loader = iter(loader)
         # self.stream = torch.cuda.Stream()
         self.preload()
+        self.sampler = loader.sampler
 
+    ##BUG：
+    ##这样可能导致数据在最后一个batch的时候一直都是最后的数据
     def preload(self):
         try:
             self.next_data = next(self.loader)

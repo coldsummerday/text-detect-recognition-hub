@@ -70,7 +70,10 @@ class NormalizePADToTensor(object):
 @PIPELINES.register_module
 class Ndarray2tensor(object):
     def __init__(self):
-        self.transforms = transforms.ToTensor()
+        self.transforms =transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.4791796875, 0.455734375, 0.40625], std=[0.229, 0.224, 0.225])
+        ])
 
     def __call__(self,data:dict):
         assert type(data.get("img"))==np.ndarray
@@ -108,7 +111,7 @@ class GenerateTrainMask(object):
         h, w, c = data["img"].shape
         text_polys = data["gt_polys"]
         text_tags = data["gt_tags"]
-        training_mask = np.ones((h, w), dtype=np.uint8)
+        training_mask = np.ones((h, w), dtype=np.float32)
         score_maps = []
         ##两张，一张完整的图，一张缩小的图。。 DB只需要一张
         for shrink_ratio in self.shrink_ratio_list:
