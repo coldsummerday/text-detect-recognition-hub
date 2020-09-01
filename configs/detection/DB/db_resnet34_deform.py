@@ -23,7 +23,7 @@ model = dict(
         neck_out_channels=256 // 4,
         k=50,
         thresh=0.2,
-        score_thresh=0.5,
+        score_thresh=0.7,
         max_candidates=1000,
     )
 )

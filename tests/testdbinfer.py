@@ -10,8 +10,8 @@ from texthub.utils import set_random_seed
 import torch
 
 set_random_seed(12)
-config_file = "./configs/detection/DB/resnet18_deform.py"
-checkpoint = "./work_dirs/db_resnet18_deform/iter_30000.pth"
+config_file = "./configs/detection/DB/db_resnet18_defrom_epoch.py"
+checkpoint = "./work_dirs/db_resnet18_deform_epoch/epoch_1200.pth"
 # config_file = "./configs/detection/pan/pandetect.py"
 # checkpoint = "./work_dirs/pan/PAN_epoch_22.pth"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

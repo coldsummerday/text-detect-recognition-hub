@@ -3,8 +3,8 @@ model = dict(
     pretrained=None,
     backbone=dict(
         type="DetResNet",
-        depth=18,
-        arch="resnet18",
+        depth=50,
+        arch="resnet50",
         norm="bn",
         stage_with_dcn=[False, True, True, True],
         dcn_config=dict(
@@ -14,7 +14,7 @@ model = dict(
     ),
     neck=dict(
         type="SegDBNeck",
-        in_channels=[64,128,256,512],
+        in_channels=[256, 512, 1024, 2048],
         inner_channels = 256,
     ),
     det_head=dict(
@@ -80,37 +80,33 @@ data = dict(
         )
 )
 # optimizer
-optimizer = dict(type='SGD', lr=0.007, momentum=0.9, weight_decay=0.0001)
-optimizer_config = dict()
-
-dist_params = dict(backend='nccl')
 # learning policy
 optimizer_config = dict()
+optimizer = dict(type='SGD', lr=0.007, momentum=0.9, weight_decay=0.0001)
+
+dist_params = dict(backend='nccl')
+
 ##不使用lr减少
 lr_config = dict(
     policy="ExpIterdecay",
-    interval=200,
+    interval=5000,
     power_decay = 0.9,
     min_lr=0.005,
 )
-
+checkpoint_config = dict(interval=30000) ##save_mode true->epoch, false->iter
 dist_params = dict(backend='nccl')
-# learning policy
-checkpoint_config = dict(interval=10,by_epoch=True)
 # yapf:disable
 log_config = dict(
-    interval=200,
-    by_epoch=True,
+    interval=1000,
     hooks=[
         dict(type='TextLoggerHook'),
         # dict(type='TensorboardLoggerHook')
     ])
-# yapf:enable
-# runtime settings
-seed = 10
-total_epochs = 1200
+
+seed = 1211
+total_iters = 300000
 log_level = 'INFO'
-work_dir = './work_dirs/db_resnet18_deform_epoch/'
+work_dir = './work_dirs/db/db_resnet50_deform/'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]

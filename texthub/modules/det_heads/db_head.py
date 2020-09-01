@@ -1,4 +1,3 @@
-
 import numpy as np
 import cv2
 import torch
@@ -103,7 +102,6 @@ class DBHead(nn.Module):
         :return:
         binary: text region segmentation map, with shape (N, 1, H, W)
         process binary to polygon or bbox
-
         可能需要原始图像的width, height信息
         """
         batches = pred.size(0)
@@ -226,7 +224,6 @@ class DBHead(nn.Module):
     def unclip(self, box:np.ndarray, unclip_ratio=1.5):
         """
         box :(N,2)
-
         The Clipper library uses integers instead of floating point values to preserve numerical robustness
         """
         poly = box.copy().astype(np.int)
@@ -456,9 +453,7 @@ class BalanceCrossEntropyLoss(nn.Module):
         - GT: :math:`(N, 1, H, W)`, same shape as the input
         - Mask: :math:`(N, H, W)`, same spatial shape as the input
         - Output: scalar.
-
     Examples::
-
         >>> m = nn.Sigmoid()
         >>> loss = nn.BCELoss()
         >>> input = torch.randn(3, requires_grad=True)
@@ -537,4 +532,3 @@ class L1BalanceCELoss(nn.Module):
             loss_bce=self.bce_scale*bce_loss, loss_thresh_l1=self.l1_scale * thresh_l1_loss,loss_thresh_dice=thresh_dice_loss
         )
         return result
-

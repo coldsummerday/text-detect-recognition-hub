@@ -10,8 +10,9 @@ from texthub.utils import set_random_seed
 import torch
 
 set_random_seed(12)
-config_file = "./configs/detection/pan/pandetect.py"
-checkpoint = "./work_dirs/pan/PAN_epoch_24.pth"
+config_file = "./configs/detection/DB/db_resnet18_defrom_epoch.py"
+
+checkpoint = "./work_dirs/db_resnet18_deform_epoch/epoch_1200.pth"
 # config_file = "./configs/detection/pan/pandetect.py"
 # checkpoint = "./work_dirs/pan/PAN_epoch_22.pth"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -44,10 +45,10 @@ for img_id in tqdm(img_paths):
     img = draw_bbox(img, preds)
     cv2.imwrite("./testimgs/{}".format(img_id),img)
 # img = "/home/zhou/data/data/receipt/end2end/receipt_2nd_icdr15/ori_imgs/12.jpg"
-# preds = inference_detector(model,img)
+# preds,scores  = inference_detector(model,img)
 # img = cv2.imread(img)
+# print(preds)
 # img = draw_bbox(img,preds)
-#
 # cv2.imwrite("./testimgs/1.jpeg",img)
 # cv2.imshow("s",img)
 # cv2.waitKey()

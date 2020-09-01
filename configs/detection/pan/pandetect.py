@@ -28,10 +28,8 @@ model = dict(
 train_cfg = dict()
 test_cfg = dict()
 dataset_type = 'IcdarDetectDataset'
-#data_root = '/Users/zhouhaibin/data/receipt_2nd_icdr15/'
 data_root = '/data/zhb/data/receipt/end2end/receipt_2nd_icdr15/'
 val_data_root = '/data/zhb/data/receipt/end2end/receipt_2nd_icdr15val/'
-#val_data_root = '/Users/zhouhaibin/data/receipt_2nd_icdr15val/'
 train_pipeline = [
     dict(type="CheckPolys"),
     dict(type="DetectResize",img_scale=(640,640)),
@@ -48,6 +46,8 @@ test_pipeline = [
     dict(type='Collect', keys=['img']),
 ]
 val_pipeline = [
+
+
     dict(type="DetectResize",img_scale=(640,640)),
     dict(type="Ndarray2tensor"),
     dict(type="Gt2SameDim",max_label_num = 250),
@@ -63,17 +63,21 @@ data = dict(
         root=data_root,
         pipeline = train_pipeline,
         img_channel=3,
+        line_flag=False,  ##icdar15 format
         ),
     val = dict(
         type=dataset_type,
         root=val_data_root,
         pipeline = val_pipeline,
         img_channel=3,
+        line_flag=False,  ##icdar15 format
         ),
     test=dict(
         type=dataset_type,
         root=val_data_root,
         pipeline = test_pipeline,
+        line_flag=False,  ##icdar15 format
+
         )
 )
 

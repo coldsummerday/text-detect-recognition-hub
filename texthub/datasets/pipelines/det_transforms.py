@@ -72,7 +72,7 @@ class Ndarray2tensor(object):
     def __init__(self):
         self.transforms =transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.4791796875, 0.455734375, 0.40625], std=[0.229, 0.224, 0.225])
+            # transforms.Normalize(mean=[0.4791796875, 0.455734375, 0.40625], std=[0.229, 0.224, 0.225])
         ])
 
     def __call__(self,data:dict):
@@ -93,6 +93,7 @@ class Gt2SameDim(object):
         gt[:length] = gt_polys_array
         data['gt_polys'] = gt
         return data
+
 
 
 

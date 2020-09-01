@@ -19,7 +19,7 @@ class IcdarDetectDataset(Dataset):
         self.line_flag = line_flag
 
         self.img_path_fmt = os.path.join(root,img_prefix,"{}.jpg")
-        self.gt_path_fmt = os.path.join(root,gt_prefix,"{}.txt")
+        self.gt_path_fmt = os.path.join(root,gt_prefix,"gt_{}.txt")
         self.ids_list = self.load_index(root)
         self.pipeline = Compose(pipeline)
 
