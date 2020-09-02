@@ -11,7 +11,7 @@ import  torch
 from PIL import Image
 from torchvision import transforms
 # config_file = "./configs/recognition/fourstagerecogition/tps_resnet_lstm_attention_chi_iter_maskresize.py"
-config_file = "./configs/detection/DB/db_resnet50.py"
+config_file = "./configs/detection/PSE/det_dataset.py"
 cfg = Config.fromfile(config_file)
 ##
 
@@ -27,7 +27,7 @@ b=torch.utils.data.DataLoader(
     dataset,
     batch_size=1,
     num_workers=1,
-    shuffle=False,
+    shuffle=True,
     pin_memory=True
         )
 def datasetitemn2show(data:dict):
@@ -43,9 +43,32 @@ def datasetitemn2show(data:dict):
 
 
 
-data=b.__iter__().__next__()
 
-datasetitemn2show(data)
+
+import matplotlib.pyplot as plt
+def show_img(imgs: np.ndarray, color=False):
+    if (len(imgs.shape) == 3 and color) or (len(imgs.shape) == 2 and not color):
+        imgs = np.expand_dims(imgs, axis=0)
+    for img in imgs:
+        plt.figure()
+        plt.imshow(img, cmap=None if color else 'gray')
+
+for i,data in enumerate(b):
+    img = data["img"]
+    label = data["gt"]
+    mask = data["mask"]
+    print(label.shape)
+    print(img.shape)
+    print(label[0][-1].sum())
+    print(mask[0].shape)
+    # pbar.update(1)
+    show_img((img[0] * mask[0].to(torch.float)).numpy().transpose(1, 2, 0), color=True)
+    show_img(label[0])
+    show_img(mask[0])
+    plt.show()
+
+
+# datasetitemn2show(data)
 
 # index = 0
 # from tqdm import tqdm

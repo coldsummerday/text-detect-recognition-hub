@@ -13,7 +13,7 @@ except ImportError:
 import cv2
 import numbers
 import pyclipper
-
+import  random
 import Polygon as plg
 @PIPELINES.register_module
 class ResizeRecognitionImage(object):
@@ -95,7 +95,153 @@ class Gt2SameDim(object):
         return data
 
 
+@PIPELINES.register_module
+class RandomScalePSE(object):
+    def __init__(self,scales:np.ndarray = np.array([0.5, 1, 2.0, 3.0]),input_size:int=640):
+        self.scales = scales
+        self.input_size = input_size
 
+    def __call__(self,data:dict):
+        img = data["img"]
+        text_polys = data["gt_polys"]
+        img, text_polys = self.random_scale(img, text_polys, self.scales)
+        data["img"] = img
+        data["gt_polys"] = text_polys
+        return data
+
+    def random_scale(self, im: np.ndarray, text_polys: np.ndarray, scales: np.ndarray or list) -> tuple:
+        """
+        从scales中随机选择一个尺度，对图片和文本框进行缩放
+        :param im: 原图
+        :param text_polys: 文本框
+        :param scales: 尺度
+        :return: 经过缩放的图片和文本
+        """
+        tmp_text_polys = text_polys.copy()
+        rd_scale = float(np.random.choice(scales))
+        im = cv2.resize(im, dsize=None, fx=rd_scale, fy=rd_scale)
+        tmp_text_polys *= rd_scale
+
+        h, w, _ = im.shape
+        short_edge = min(h, w)
+        if short_edge < self.input_size:
+            # 保证短边 >= inputsize,然后做crop操作
+            scale = self.input_size / short_edge
+            im = cv2.resize(im, dsize=None, fx=scale, fy=scale)
+            tmp_text_polys *= scale
+
+        return im, tmp_text_polys
+
+@PIPELINES.register_module
+class RandomCropPSE(object):
+    def __init__(self,size:int=640):
+        self.input_size = size
+    def __call__(self,data:dict):
+        img = data["img"]
+        h, w = img.shape[0:2]
+        th, tw = self.input_size,self.input_size
+        if w == tw and h == th:
+            return data
+        training_mask = data["mask"]
+        score_maps=data["gt"].transpose((1, 2, 0))
+
+        # label中存在文本实例，并且按照概率进行裁剪
+        if np.max(score_maps[:, :, -1]) > 0 and random.random() > 3.0 / 8.0:
+            # 文本实例的top left点
+            tl = np.min(np.where(score_maps[:, :, -1] > 0), axis=1) - self.input_size
+            tl[tl < 0] = 0
+            # 文本实例的 bottom right 点
+            br = np.max(np.where(score_maps[:, :, -1] > 0), axis=1) - self.input_size
+            br[br < 0] = 0
+            # 保证选到右下角点是，有足够的距离进行crop
+            br[0] = min(br[0], h - th)
+            br[1] = min(br[1], w - tw)
+            for _ in range(50000):
+                i = random.randint(tl[0], br[0])
+                j = random.randint(tl[1], br[1])
+                # 保证最小的图有文本
+                if score_maps[:, :, 0][i:i + th, j:j + tw].sum() <= 0:
+                    continue
+                else:
+                    break
+        else:
+            i = random.randint(0, h - th)
+            j = random.randint(0, w - tw)
+
+
+        data['img'] = self.crop(img,i,j,th,tw)
+        data["mask"] = self.crop(training_mask,i,j,th,tw)
+        data["gt"] =self.crop(score_maps,i,j,th,tw).transpose((2, 0, 1))
+        return data
+    def crop(self,img:np.ndarray,i:int,j:int,th:int,tw:int):
+        if len(img.shape)==3:
+            img = img[i:i + th, j:j + tw, :]
+        else:
+            img = img[i:i + th, j:j + tw]
+        return img
+
+
+@PIPELINES.register_module
+class GenerateTrainMaskPSE(object):
+    """
+        shrink_ratio: gt收缩的比例
+        vatli clipping 算法收缩 training textregion
+        """
+
+    def __init__(self, result_num:int=6,m:float=0.5):
+        self.n = result_num
+        self.m = m
+
+    def __call__(self,data:dict):
+        h, w, c = data["img"].shape
+        text_polys = data["gt_polys"]
+        text_tags = data["gt_tags"]
+        training_mask = np.ones((h, w), dtype=np.uint8)
+        score_maps = []
+
+        for si in range(1,self.n+1):
+            score_map, training_mask = self.generate_rbox((h, w), text_polys, text_tags, training_mask, si,self.n,self.m)
+            score_maps.append(score_map)
+        score_maps = np.array(score_maps, dtype=np.float32)
+        data["gt"] = score_maps
+        data["mask"] = training_mask
+        return data
+
+    def generate_rbox(self,im_size,text_polys, text_tags, training_mask, i, n, m):
+        """
+        生成mask图，白色部分是文本，黑色是背景
+        :param im_size: 图像的h,w
+        :param text_polys: 框的坐标
+        :param text_tags: 标注文本框是否参与训练
+        :param training_mask: 忽略标注为 DO NOT CARE 的矩阵
+        :return: 生成的mask图
+        """
+        h, w = im_size
+        score_map = np.zeros((h, w), dtype=np.uint8)
+        for poly, tag in zip(text_polys, text_tags):
+            try:
+                poly = poly.astype(np.int)
+                r_i = 1 - (1 - m) * (n - i) / (n - 1)
+                d_i = cv2.contourArea(poly) * (1 - r_i * r_i) / cv2.arcLength(poly, True)
+                pco = pyclipper.PyclipperOffset()
+
+                pco.AddPath(poly, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
+                shrinked_poly = np.array(pco.Execute(-d_i))
+                cv2.fillPoly(score_map, shrinked_poly, 1)
+                # 制作mask
+                # rect = cv2.minAreaRect(shrinked_poly)
+                # poly_h, poly_w = rect[1]
+
+                # if min(poly_h, poly_w) < 10:
+                #     cv2.fillPoly(training_mask, shrinked_poly, 0)
+                if not tag:
+                    cv2.fillPoly(training_mask, shrinked_poly, 0)
+                # 闭运算填充内部小框
+                # kernel = np.ones((3, 3), np.uint8)
+                # score_map = cv2.morphologyEx(score_map, cv2.MORPH_CLOSE, kernel)
+            except Exception as e:
+                continue
+        return score_map, training_mask
 
 
 @PIPELINES.register_module

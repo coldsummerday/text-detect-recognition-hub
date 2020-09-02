@@ -81,6 +81,15 @@ if __name__ == '__main__':
                 language='c++11',
 
             ),
+            make_cpp_ext(
+                name="pse_cpp",
+                module="texthub.ops.pse",
+                sources=["src/pse_cpp.cpp"],
+                include_dirs=['include/pybind11'],
+                extra_compile_args=extra_compile_args,
+                language='c++11',
+
+            ),
             make_cuda_ext(
                 name='deform_conv_cuda',
                 module="texthub.ops.dcn",
