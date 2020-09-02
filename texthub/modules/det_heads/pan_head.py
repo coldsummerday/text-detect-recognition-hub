@@ -1,5 +1,5 @@
 
-from ...ops.pse import get_points,pse_cpp,get_num
+from ...ops.pan import get_points,pan_cpp_f,get_num
 ##ops.pse为cpp实现方式
 import numpy as np
 from queue import Queue
@@ -275,7 +275,7 @@ def decode_ploy(preds, scale=1, threshold=0.7311, min_area=5):
             continue
         label_values.append(label_idx)
 
-    pred = pse_cpp(text.astype(np.uint8), similarity_vectors, label, label_num, 0.8)
+    pred = pan_cpp_f(text.astype(np.uint8), similarity_vectors, label, label_num, 0.8)
     pred = pred.reshape(text.shape)
 
     label_points = get_points(pred, score, label_num)
@@ -342,7 +342,7 @@ def decode_bbox(preds, scale=1, threshold=0.7311, min_area=5):
             continue
         label_values.append(label_idx)
 
-    pred = pse_cpp(text.astype(np.uint8), similarity_vectors, label, label_num, 0.8)
+    pred = pan_cpp_f(text.astype(np.uint8), similarity_vectors, label, label_num, 0.8)
     pred = pred.reshape(text.shape)
 
     bbox_list = []
@@ -391,7 +391,7 @@ def decode(preds, scale=1, threshold=0.7311, min_area=5):
             continue
         label_values.append(label_idx)
 
-    pred = pse_cpp(text.astype(np.uint8), similarity_vectors, label, label_num, 0.8)
+    pred = pan_cpp_f(text.astype(np.uint8), similarity_vectors, label, label_num, 0.8)
     pred = pred.reshape(text.shape)
 
     bbox_list = []

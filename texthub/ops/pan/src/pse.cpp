@@ -211,8 +211,8 @@ namespace pan{
     }
 }
 
-PYBIND11_MODULE(pse_cpp, m){
-    m.def("pse_cpp", &pan::pse, " re-implementation pse algorithm(cpp)", py::arg("text"), py::arg("similarity_vectors"), py::arg("label_map"), py::arg("label_num"), py::arg("dis_threshold")=0.8);
+PYBIND11_MODULE(pan_cpp, m){
+    m.def("pan_cpp_f", &pan::pse, " re-implementation pse algorithm(cpp)", py::arg("text"), py::arg("similarity_vectors"), py::arg("label_map"), py::arg("label_num"), py::arg("dis_threshold")=0.8);
     m.def("get_points", &pan::get_points, " re-implementation pse algorithm(cpp)", py::arg("label_map"), py::arg("score_map"), py::arg("label_num"));
     m.def("get_num", &pan::get_num, " re-implementation pse algorithm(cpp)", py::arg("label_map"), py::arg("label_num"));
 }

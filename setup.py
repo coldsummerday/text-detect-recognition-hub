@@ -73,8 +73,8 @@ if __name__ == '__main__':
         package_data={'texthub.ops': ['*/*.so']},
         ext_modules=[
             make_cpp_ext(
-                name="pse_cpp",
-                module="texthub.ops.pse",
+                name="pan_cpp",
+                module="texthub.ops.pan",
                 sources=["src/pse.cpp"],
                 include_dirs=['include/pybind11'],
                 extra_compile_args=extra_compile_args,
