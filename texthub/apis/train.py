@@ -2,10 +2,10 @@
 import torch
 from torch.nn.parallel import DistributedDataParallel,DataParallel
 
-from ..core.train import EpochBaseRunner,IterBasedRunner
+from ..core.train import EpochBaseRunner,IterBasedRunner,Runner
 from ..utils import get_root_logger
 from ..core.optimizer import build_optimizer
-from ..core.train.Hooks import RecoEvalHook,DistSamplerSeedHook,DistRecoEvalHook,DistOptimizerHook
+from ..core.train.Hooks import RecoEvalHook,DistRecoEvalHook,DistOptimizerHook
 from torch.utils.data.distributed import DistributedSampler
 from ..utils.dist_utils import get_dist_info
 from .batchprocess import recogition_batch_processor,detect_batch_processor
@@ -125,13 +125,20 @@ def _dist_train(model,
 
     iters_num = cfg.get('total_iters', None)
     if iters_num == None:
-        runner = EpochBaseRunner(
+        runner = Runner(
             model,
             batch_processor,
             optimizer,
             cfg.work_dir,
-            logger=logger,
-            meta=None)
+            logger=logger,meta=None
+        )
+        # runner = EpochBaseRunner(
+        #     model,
+        #     batch_processor,
+        #     optimizer,
+        #     cfg.work_dir,
+        #     logger=logger,
+        #     meta=None)
     else:
         runner = IterBasedRunner(
             model,
@@ -172,7 +179,7 @@ def _dist_train(model,
         runner.run(data_loaders, cfg.workflow, iters_num)
     else:
         ##epoch base runner 需要， iter base 以及在dataloader设置了
-        runner.register_hook(DistSamplerSeedHook())
+        # runner.register_hook(DistSamplerSeedHook())
         runner.run(data_loaders, cfg.workflow, cfg.total_epochs)
 
 

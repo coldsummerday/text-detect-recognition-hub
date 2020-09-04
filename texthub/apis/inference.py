@@ -112,9 +112,10 @@ def inference_detector(model,img:str):
     h_scale = float(ori_h) / new_h
 
     if type(batch_pred_bbox)==np.ndarray:
+        if len(batch_pred_bbox)!=0:
         ##bbox 情况，其4个点个数稳定
-        batch_pred_bbox[:,:,0] *=w_scale
-        batch_pred_bbox[:, :, 1] *= h_scale
+            batch_pred_bbox[:,:,0] *=w_scale
+            batch_pred_bbox[:, :, 1] *= h_scale
     else:
         #polygon
         for polygon_array  in batch_pred_bbox:

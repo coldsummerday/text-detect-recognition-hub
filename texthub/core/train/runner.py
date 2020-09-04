@@ -449,7 +449,7 @@ class Runner(object):
             assert 'policy' in lr_config
             # 在代码中找到这个类
             hook_name = lr_config['policy'].title() + 'LrUpdaterHook'
-
+            lr_config.pop("policy")
             if not hasattr(lrupdatehook, hook_name):
                 raise ValueError('"{}" does not exist'.format(hook_name))
             hook_cls = getattr(lrupdatehook, hook_name)

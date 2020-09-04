@@ -51,6 +51,9 @@ class PseHead(nn.Module):
         x = self.out_conv(x)
         x = F.interpolate(x, size=(self.img_h // self.scale, self.img_w // self.scale), mode='bilinear', align_corners=True)
         #[batch,result_num,w,h]
+
+
+
         return x
 
     def forward_train(self,data:dict):
@@ -65,15 +68,31 @@ class PseHead(nn.Module):
         return loss_result
 
     def postprocess(self,preds:torch.Tensor)->([],[]):
+        batch_size =  preds.shape[0]
+        total_bbox_list = []
+        total_score_list = []
+        for i in range(batch_size):
+            bbox_list,score_list = self._post_process_single(preds[i])
+            total_bbox_list.append(bbox_list)
+            total_score_list.append(score_list)
+        return total_bbox_list,total_score_list
+
+    def _post_process_single(self,preds:torch.Tensor):
+        """
+        preds:[result_num,w,h]
+        """
         preds = torch.sigmoid(preds)
         preds = preds.detach().cpu().numpy()
+
 
         score = preds[-1].astype(np.float32)
         preds = preds > self.threshold
 
+        show_img(preds)
+
         pse_pred, label_values = pse_warpper(preds, 5)
         polygon_list = []
-        score_list =  []
+        score_list = []
         for label_value in label_values:
             points = np.array(np.where(pse_pred == label_value)).transpose((1, 0))[:, ::-1]
 
@@ -86,11 +105,10 @@ class PseHead(nn.Module):
 
             score_list.append(score_i)
             rect = cv2.minAreaRect(points)
-            polygon_list.append(rect)
-            # bbox = cv2.boxPoints(rect)
-            # bbox_list.append([bbox[1], bbox[2], bbox[3], bbox[0]])
-        return polygon_list,score_list
-
+            bbox = cv2.boxPoints(rect)
+            polygon_list.append([bbox[1], bbox[2], bbox[3], bbox[0]])
+            # polygon_list.append(rect)
+        return np.array(polygon_list), score_list
 
 
 def pse_warpper(kernels,min_area=5):
@@ -119,7 +137,13 @@ def pse_warpper(kernels,min_area=5):
     return np.array(preds), label_values
 
 
-
+def show_img(imgs: np.ndarray, color=False):
+    import matplotlib.pyplot as plt
+    if (len(imgs.shape) == 3 and color) or (len(imgs.shape) == 2 and not color):
+        imgs = np.expand_dims(imgs, axis=0)
+    for img in imgs:
+        plt.figure()
+        plt.imshow(img, cmap=None if color else 'gray')
 
 
 

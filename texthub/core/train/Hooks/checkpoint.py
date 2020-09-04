@@ -36,7 +36,7 @@ class CheckpointHook(BaseHook):
 
 
 
-    ##用于每个interval 保存checkpoint
+
     @master_only
     def after_train_epoch(self, runner):
         if not self.by_epoch or  not self.every_n_epochs(runner, self.interval):

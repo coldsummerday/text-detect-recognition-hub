@@ -10,9 +10,10 @@ from .loghook import LoggerHook
 from .textloghook import TextLoggerHook
 from .optimizer import OptimizerHook,DistOptimizerHook
 from .evalhooks import RecoEvalHook,DistRecoEvalHook
-from .sampler_seed import DistSamplerSeedHook
+from .simpletextloghook import SimpleTextLoggerHook
+from .lrhooks import WarmupAndDecayLrUpdateHook
 __all__ = [
     'BaseHook', 'CheckpointHook', 'LrUpdaterHook', 'OptimizerHook',
     'IterTimerHook', 'LoggerHook',
-    'TextLoggerHook',"DistSamplerSeedHook","DistRecoEvalHook","DistOptimizerHook"
+    'TextLoggerHook',"DistRecoEvalHook","DistOptimizerHook","SimpleTextLoggerHook","WarmupAndDecayLrUpdateHook"
 ]

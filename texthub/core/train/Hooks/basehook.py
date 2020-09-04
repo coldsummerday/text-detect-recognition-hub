@@ -27,26 +27,19 @@ class BaseHook(object):
     def before_train_epoch(self, runner):
         self.before_epoch(runner)
 
-    def before_val_epoch(self, runner):
-        self.before_epoch(runner)
 
     def after_train_epoch(self, runner):
         self.after_epoch(runner)
 
-    def after_val_epoch(self, runner):
-        self.after_epoch(runner)
 
     def before_train_iter(self, runner):
         self.before_iter(runner)
 
-    def before_val_iter(self, runner):
-        self.before_iter(runner)
 
     def after_train_iter(self, runner):
         self.after_iter(runner)
 
-    def after_val_iter(self, runner):
-        self.after_iter(runner)
+
 
     def every_n_epochs(self, runner, n):
         return (runner.epoch + 1) % n == 0 if n > 0 else False

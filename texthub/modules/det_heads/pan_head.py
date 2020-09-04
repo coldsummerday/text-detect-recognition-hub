@@ -125,8 +125,12 @@ class PANLoss(nn.Module):
             raise NotImplementedError
 
         #loss_all = loss_text + self.alpha * loss_kernel + self.beta * (loss_agg + loss_dis)
+        # result = dict(
+        #     loss_text=loss_text, loss_kernel=self.alpha*loss_kernel, loss_agg=self.beta*loss_agg, loss_dis=self.beta*loss_dis
+        # )
         result = dict(
-            loss_text=loss_text, loss_kernel=self.alpha*loss_kernel, loss_agg=self.beta*loss_agg, loss_dis=self.beta*loss_dis
+            loss_text=loss_text, loss_kernel=loss_kernel, loss_agg=loss_agg, loss_dis=loss_dis,
+            loss = loss_text + self.alpha * loss_kernel + self.beta * (loss_agg + loss_dis),
         )
 
         return result

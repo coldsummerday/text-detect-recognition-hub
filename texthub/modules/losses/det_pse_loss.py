@@ -58,9 +58,9 @@ class PSELoss(nn.Module):
             loss_kernels = loss_kernels.sum()
 
         # loss = self.Lambda * loss_text + (1 - self.Lambda) * loss_kernels
-        # 在runner中会将该loss 求和回传
         result = dict(
-            loss_text=loss_text * self.Lambda,loss_kernels=(1 - self.Lambda) * loss_kernels
+            loss_text=loss_text ,loss_kernels= loss_kernels,
+            loss=self.Lambda * loss_text + (1 - self.Lambda) * loss_kernels
         )
         return result
         # return loss_text, loss_kernels, loss

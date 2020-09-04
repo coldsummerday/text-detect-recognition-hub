@@ -64,8 +64,7 @@ val_pipeline = [
     dict(type='Collect', keys=['img',"gt_polys"]),
 ]
 data = dict(
-    imgs_per_gpu=4,
-    workers_per_gpu=2,
+    batch_size=8,
     train=dict(
         type=dataset_type,
         root=data_root,
@@ -85,44 +84,38 @@ data = dict(
         root=val_data_root,
         pipeline = test_pipeline,
         line_flag=False,  ##icdar15 format
-
         )
 )
 # optimizer
 optimizer = dict(type='Adam', lr=1e-4, weight_decay=5e-4)
-optimizer_config = dict()
-
 dist_params = dict(backend='nccl')
-# learning policy
-optimizer_config = dict()
-##不使用lr减少
-lr_config = dict(
-    policy="ExpIterdecay",
-    interval=200,
-    power_decay = 0.9,
-    min_lr=1e-7,
-)
+train_hooks = [
+    dict(
+        type="CheckpointHook",
+        interval=5,## 2个epoch 保存一个结果
+        by_epoch=True,
+        priority = 80,
+    ),
+    dict(
+        type="SimpleTextLoggerHook",
+        by_epoch=True,
+        interval=200,
+        priority = 100,
+    ),
+    dict(
+        type="IterTimerHook",
+        priority = 60,
+    ),
+    ##eval hooks
 
-dist_params = dict(backend='nccl')
-# learning policy
-checkpoint_config = dict(interval=50,by_epoch=True)
-# yapf:disable
-log_config = dict(
-    interval=200,
-    by_epoch=True,
-    hooks=[
-        dict(type='TextLoggerHook'),
-        # dict(type='TensorboardLoggerHook')
-    ])
-# yapf:enable
+]
+
 # runtime settings
 seed = 10
-total_epochs = 600
+by_epoch = True
+max_number = 600
+# by_epoch = False
+# max_number = 30000
 log_level = 'INFO'
-work_dir = './work_dirs/pse/pse_resnet50_deform_6_epoch/'
-load_from = None
+work_dir = './work_dirs/pse_resnet50_deform_6_epoch_trainer/'
 resume_from = None
-workflow = [('train', 1)]
-
-
-

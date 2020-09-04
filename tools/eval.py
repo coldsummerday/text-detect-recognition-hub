@@ -25,7 +25,6 @@ def model_inference(model,data_loader,get_pred_func:Callable,get_gt_func:Callabl
     else:
         device = next(model.parameters()).device
     model.eval()
-    dataset = data_loader.dataset
     results = []
     gts = []
     for  data in tqdm(data_loader):
@@ -77,12 +76,11 @@ def main():
     dataset = build_dataset(cfg.data.val)
 
 
-    batch_size = cfg.data.imgs_per_gpu
-    num_workers = cfg.data.workers_per_gpu
+    batch_size = cfg.data.batch_size
     data_loader =torch.utils.data.DataLoader(
             dataset,
             batch_size=batch_size,
-            num_workers=num_workers,
+            num_workers=batch_size,
             pin_memory=True
         )
 
