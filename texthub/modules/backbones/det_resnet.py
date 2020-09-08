@@ -92,12 +92,7 @@ class BaseResNet(nn.Module):
                                        dilate=replace_stride_with_dilation[2],with_dcn=stage_with_dcn[3],dcn_config=dcn_config)
 
 
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
+
 
         # Zero-initialize the last BN in each residual branch,
         # so that the residual branch starts with zeros, and each residual block behaves like an identity.
@@ -132,6 +127,9 @@ class BaseResNet(nn.Module):
                                 norm_layer=norm_layer,with_dcn=with_dcn,dcn_config=dcn_config))
 
         return nn.Sequential(*layers)
+
+    def init_weights(self,pretrained=True):
+        return NotImplemented
 
     def forward(self, x):
         x = self.conv1(x)
@@ -195,19 +193,18 @@ class DetResNet(BaseResNet):
         super(DetResNet, self).__init__(block, layers, **kwargs)
 
 
-        def init_weights(self,pretrained=True):
-            ##从预训练中加载
-            if pretrained is None:
-                for m in self.modules():
-                    if isinstance(m, nn.Conv2d):
-                        nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                    elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                        nn.init.constant_(m.weight, 1)
-                        nn.init.constant_(m.bias, 0)
-            else:
-                state_dict = load_state_dict_from_url(model_urls[self.arch_str],
-                                                      )
-                self.load_state_dict(state_dict, strict=False)
+    def init_weights(self,pretrained=True):
+        ##从预训练中加载
+        if pretrained is None:
+            for m in self.modules():
+                if isinstance(m, nn.Conv2d):
+                    nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                    nn.init.constant_(m.weight, 1)
+                    nn.init.constant_(m.bias, 0)
+        else:
+            state_dict = load_state_dict_from_url(model_urls[self.arch_str])
+            self.load_state_dict(state_dict, strict=False)
 
 
 
@@ -217,7 +214,6 @@ def _resnet(arch, block, layers, pretrained, progress, **kwargs):
         state_dict = load_state_dict_from_url(model_urls[arch],
                                               progress=progress)
         model.load_state_dict(state_dict, strict=False)
-        print('load pretrained models from imagenet')
     return model
 
 

@@ -77,9 +77,9 @@ class SimpleTextLoggerHook(LoggerHook):
         # only record lr of the first param group
         cur_lr = runner.current_lr()
         if isinstance(cur_lr, list):
-            log_str_list.append("lr:{.5f}".format(cur_lr[0]))
+            log_str_list.append("lr:{:f}".format(cur_lr[0]))
         else:
-            log_str_list.append("lr:{.5f}".format(cur_lr))
+            log_str_list.append("lr:{:f}".format(cur_lr))
 
         for name, val in runner.log_buffer.output.items():
             if name in ['time', 'data_time']:

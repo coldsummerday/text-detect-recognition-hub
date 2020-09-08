@@ -38,7 +38,7 @@ def parse_args():
         '--deterministic',
         action='store_true',
         help='whether to set deterministic options for CUDNN backend.')
-    parser.add_argument("--distributed", default=True, type=bool, help="use DistributedDataParallel to train")
+    parser.add_argument("--distributed", default=1, type=int, help="use DistributedDataParallel to train")
     parser.add_argument('--local_rank', type=int, default=0)
 
     args = parser.parse_args()
@@ -62,7 +62,7 @@ def main():
 
     cfg.gpus = args.gpus
 
-    if args.distributed:
+    if args.distributed==1:
         """
         pytorch:为单机多卡
         """
@@ -119,6 +119,7 @@ def main():
 
         if torch.cuda.is_available() and cfg.gpus != 0:
             # put model on gpus
+            ##TODO:  torch.cuda.current_device() 和cfg.gpus联合的带device_ids
             model = DataParallel(model, device_ids=range(cfg.gpus)).cuda()
 
     # build trainner
@@ -127,11 +128,7 @@ def main():
 
     if cfg.resume_from:
         trainer.resume(cfg.resume_from)
-    else:
-        if hasattr(model, 'module'):
-            model.module.init_weights()
-        else:
-            model.init_weights()
+
     trainer.register_hooks(cfg.train_hooks)
     trainer.run(max_number=cfg.max_number,by_epoch=cfg.by_epoch)
 

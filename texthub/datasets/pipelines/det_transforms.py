@@ -300,10 +300,12 @@ class MakeBorderMap(object):
     """
     DB detector 生成训练时候文字区域的边界区域mask
     """
-    def __init__(self,shrink_ratio=0.4,thresh_min=0.3,thresh_max = 0.7):
+    def __init__(self,shrink_ratio=0.4,thresh_min=0.3,thresh_max = 0.7,border_edge:int=0):
         self.thresh_min = thresh_min
         self.thresh_max = thresh_max
         self.shrink_ratio = shrink_ratio
+        #扩充边界，使得票据识别不会裁剪到文字边界
+        self.border_edge = border_edge
 
     def __call__(self,data:dict):
         h, w, c = data["img"].shape
@@ -353,10 +355,10 @@ class MakeBorderMap(object):
             return
         cv2.fillPoly(mask, [padded_polygon.astype(np.int32)], 1.0)
 
-        xmin = padded_polygon[:, 0].min()
-        xmax = padded_polygon[:, 0].max()
-        ymin = padded_polygon[:, 1].min()
-        ymax = padded_polygon[:, 1].max()
+        xmin = padded_polygon[:, 0].min()-self.border_edge
+        xmax = padded_polygon[:, 0].max()+self.border_edge
+        ymin = padded_polygon[:, 1].min()-self.border_edge
+        ymax = padded_polygon[:, 1].max()+self.border_edge
         width = xmax - xmin + 1
         height = ymax - ymin + 1
 

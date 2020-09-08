@@ -31,6 +31,13 @@ python3 -m torch.distributed.launch  --nproc_per_node=2  tools/train_*.py  confi
 ```
 训练的参数有保存工作目录, 是否从断点开始恢复等,详情看tools/train.sh
 
+使用DataParallel进行训练：
+
+```python
+ tools/train.py  config.py  --distributed 0 --gpus 2
+```
+
+
 ### eval
 
 ```python

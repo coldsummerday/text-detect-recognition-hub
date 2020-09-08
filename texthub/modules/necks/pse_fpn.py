@@ -81,3 +81,11 @@ class PseFPN(nn.Module):
         p4 = F.interpolate(p4, size=(h, w), mode='bilinear', align_corners=False)
         p5 = F.interpolate(p5, size=(h, w), mode='bilinear', align_corners=False)
         return torch.cat([p2, p3, p4, p5], dim=1)
+
+    def init_weights(self,pretrained=None):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)

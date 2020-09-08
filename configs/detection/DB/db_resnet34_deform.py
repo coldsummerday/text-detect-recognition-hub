@@ -1,3 +1,5 @@
+
+batch_size = 8
 model = dict(
     type="DBDetector",
     pretrained=None,
@@ -23,7 +25,7 @@ model = dict(
         neck_out_channels=256 // 4,
         k=50,
         thresh=0.2,
-        score_thresh=0.7,
+        score_thresh=0.5,
         max_candidates=1000,
     )
 )
@@ -55,8 +57,7 @@ val_pipeline = [
 ]
 
 data = dict(
-    imgs_per_gpu=8,
-    workers_per_gpu=4,
+    batch_size=batch_size,
     train=dict(
         type=dataset_type,
         root=data_root,
@@ -79,34 +80,60 @@ data = dict(
         line_flag = False
         )
 )
+
 # optimizer
-optimizer = dict(type='SGD', lr=0.01, momentum=0.9, weight_decay=0.0001)
-optimizer_config = dict()
-
+optimizer = dict(type='Adam', lr=1e-4, weight_decay=0.0001)
 dist_params = dict(backend='nccl')
-# learning policy
-optimizer_config = dict()
-##不使用lr减少
-lr_config = dict(
-    policy="ExpIterdecay",
-    interval=5000,
-    power_decay = 0.9,
-    min_lr=0.005,
-)
-checkpoint_config = dict(interval=30000) ##save_mode true->epoch, false->iter
-dist_params = dict(backend='nccl')
-# yapf:disable
-log_config = dict(
-    interval=1000,
-    hooks=[
-        dict(type='TextLoggerHook'),
-        # dict(type='TensorboardLoggerHook')
-    ])
+train_hooks = [
+    dict(
+        type="CheckpointHook",
+        interval=5,## 5个epoch 保存一个结果
+        by_epoch=True,
+        priority = 40,
+    ),
+    dict(
+        type="SimpleTextLoggerHook",
+        by_epoch=True,
+        interval=200,
+        priority = 100,
+    ),
+    dict(
+        type="IterTimerHook",
+        priority = 60,
+    ),
+    dict(
+        type="WarmupAndDecayLrUpdateHook",
+        base_lr=1e-4,
+        warmup_lr=1e-5,
+        warmup_num=5,
+        lr_gamma=0.9,
+        by_epoch=True,
+        min_lr=1e-7,
+        priority=40,
+    ),
+    dict(
+        type="DetEvalHook",
+        dataset=dict(
+        type=dataset_type,
+        root=val_data_root,
+        pipeline=val_pipeline,
+        line_flag=False,  ##icdar15 format
+        ),
+        batch_size=batch_size,
+        by_epoch=True,
+        interval=5,
+        priority=80,
+    )
+    ##eval hooks
 
-seed = 1211
-total_iters = 300000
+]
+
+# runtime settings
+seed = 10
+by_epoch = True
+max_number = 150
+# by_epoch = False
+# max_number = 30000
 log_level = 'INFO'
-work_dir = './work_dirs/db_resnet34_deform/'
-load_from = None
+work_dir = './work_dirs/db/db_resnet34_deform_adam/'
 resume_from = None
-workflow = [('train', 1)]

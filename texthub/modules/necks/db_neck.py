@@ -64,15 +64,13 @@ class SegDBNeck(nn.Module):
         # self.out2.apply(self.weights_init)
 
     def init_weights(self,pretrained=None):
-        if pretrained is None:
-            for m in self.modules():
-                if isinstance(m, nn.Conv2d):
-                    nn.init.kaiming_normal_(m.weight)
-                elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                    nn.init.constant_(m.weight, 1)
-                    nn.init.constant_(m.bias, 1e-4)
-        else:
-            pass
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight)
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 1e-4)
+
 
     def forward(self,features):
         c2,c3,c4,c5 = features

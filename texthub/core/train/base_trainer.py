@@ -64,8 +64,9 @@ class BaseTrainner(object):
 
         self.call_hook('before_run')
         self.model.train()
-        self.call_hook('before_train_epoch')
+
         while self._epoch < self._max_epochs:
+            self.call_hook('before_train_epoch')
             for iter,data_batch in enumerate(self.dataloader):
                 self._inner_iter = iter
 
@@ -77,6 +78,7 @@ class BaseTrainner(object):
 
                 ##收集loss
                 loss = result_loss_dict.pop("loss")
+                loss = torch.mean(loss)
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()

@@ -1,70 +1,61 @@
-result_num = 6
-img_size = 640
+# dataset settings
+batch_size = 4
 model = dict(
-    type="PSEDetector",
+    type="PAN",
     pretrained=None,
     backbone=dict(
         type="DetResNet",
-        depth=50,
-        arch="resnet50",
-        norm="bn",
-        stage_with_dcn=[False, True, True, True],
-        dcn_config=dict(
-            modulated=True,
-            deformable_groups=1
-        )
+        depth=18,
+        arch="resnet18",
+        norm="gn"
     ),
     neck=dict(
-        type="PseFPN",
-        input_channels=[256, 512, 1024, 2048],
-        conv_out = 256,
+        type="FPEM_FFM",
+        backbone_out_channels=[64, 128, 256, 512],
+        fpem_repeat=4,
     ),
-    det_head=dict(
-        type="PseHead",
-        conv_out=256,
-        result_num=result_num,
-        ori_w=img_size,
-        ori_h=img_size,
-        Lambda=0.7, ##loss_kernel 占的比重
-        OHEM_ratio=3,
-        pred_threshold=0.7311,
-        pred_score=0.93,
+    bbox_head=dict(
+        type="PanHead",
+        alpha=0.5,
+        beta=0.25,
+        delta_agg=0.5,
+        delta_dis=3,
+        ohem_ratio=3,
+        reduction='mean'
     )
 )
+
 train_cfg = dict()
 test_cfg = dict()
 dataset_type = 'IcdarDetectDataset'
 data_root = '/data/zhb/data/receipt/end2end/receipt_2nd_icdr15/'
 val_data_root = '/data/zhb/data/receipt/end2end/receipt_2nd_icdr15val/'
-
-
-
-
-
 train_pipeline = [
     dict(type="CheckPolys"),
-    dict(type="RandomScalePSE",scales=[0.5,1.0,2.0,3.0],input_size=img_size),
-    dict(type="RandomFlip",flip_ratio=0.5),
+    dict(type="DetectResize",img_scale=(640,640)),
+    dict(type="RandomFlip",flip_ratio=0.3),
     dict(type="RandomRotate",degrees=10),
-    dict(type="GenerateTrainMaskPSE",result_num=result_num,m=0.5),
-    dict(type="RandomCropPSE",size=640),
+    dict(type="GenerateTrainMask",shrink_ratio_list=[1,0.4]),
     dict(type="Ndarray2tensor"),
     dict(type='Collect', keys=['img','gt',"mask"]),
 ]
 
 test_pipeline = [
-    dict(type="DetectResize",img_scale=(img_size,img_size)),
+    dict(type="DetectResize",img_scale=(640,640)),
     dict(type="Ndarray2tensor"),
     dict(type='Collect', keys=['img']),
 ]
 val_pipeline = [
-    dict(type="DetectResize",img_scale=(img_size,img_size)),
+
+
+    dict(type="DetectResize",img_scale=(640,640)),
     dict(type="Ndarray2tensor"),
     dict(type="Gt2SameDim",max_label_num = 250),
     dict(type='Collect', keys=['img',"gt_polys"]),
 ]
+
 data = dict(
-    batch_size=2,
+    batch_size=batch_size,
     train=dict(
         type=dataset_type,
         root=data_root,
@@ -84,6 +75,7 @@ data = dict(
         root=val_data_root,
         pipeline = test_pipeline,
         line_flag=False,  ##icdar15 format
+
         )
 )
 # optimizer
@@ -107,14 +99,17 @@ train_hooks = [
         priority = 60,
     ),
     dict(
-        type="WarmupAndDecayLrUpdateHook",
-        base_lr=1e-4,
-        warmup_lr=1e-6,
-        warmup_num=20,
-        lr_gamma=0.9,
+        type="DetEvalHook",
+        dataset=dict(
+        type=dataset_type,
+        root=val_data_root,
+        pipeline=val_pipeline,
+        line_flag=False,  ##icdar15 format
+        ),
+        batch_size=batch_size,
         by_epoch=True,
-        min_lr=1e-7,
-        priority=40,
+        interval=5,
+        priority=80,
     )
     ##eval hooks
 
@@ -123,9 +118,9 @@ train_hooks = [
 # runtime settings
 seed = 10
 by_epoch = True
-max_number = 600
+max_number = 150
 # by_epoch = False
 # max_number = 30000
 log_level = 'INFO'
-work_dir = './work_dirs/pse_resnet50_deform_6_epoch_trainer_lr/'
+work_dir = './work_dirs/pan_resnet18'
 resume_from = None

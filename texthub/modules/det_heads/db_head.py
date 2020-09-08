@@ -8,7 +8,7 @@ import pyclipper
 from ..losses import L1BalanceCELoss
 from PIL import Image
 from torchvision import transforms
-
+import  matplotlib.pyplot as plt
 @HEADS.register_module
 class DBHead(nn.Module):
     """
@@ -66,14 +66,16 @@ class DBHead(nn.Module):
     def forward_test(self,data:dict):
         features = data.get("img")
         binary = self.binarize_layer(features)
-        # thresh = self.thresh_layer(features)
-        # thresh_binary = self.step_function(binary, thresh)
+        ##用thresh_bionary结果会更准确
+        thresh = self.thresh_layer(features)
+        thresh_binary = self.step_function(binary, thresh)
         # def toPILImage(img_tensor: torch.Tensor) -> Image:
         #     image = transforms.ToPILImage()(img_tensor)
         #     return image
         # toPILImage(thresh_binary[0].clone().cpu()).show()
-
-        return binary
+        # plt.figure()
+        # plt.imshow(thresh_binary[0][0].clone().cpu(), cmap='gray')
+        return thresh_binary
 
     def forward_train(self,data:dict):
         features = data.get("img")
@@ -107,7 +109,8 @@ class DBHead(nn.Module):
         batches = pred.size(0)
 
         segmentation = self.pred_binarize(pred)
-
+        # plt.figure()
+        # plt.imshow(segmentation[0][0].clone().cpu(), cmap='gray')
         boxes_batch = []
         scores_batch = []
         for batch_index in range(batches):
@@ -137,14 +140,17 @@ class DBHead(nn.Module):
             (segmentation * 255).astype(np.uint8),
             cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         for contour in contours[:self.max_candidates]:
-            epsilon = 0.01 * cv2.arcLength(contour, True)
+            #一个连续光滑曲线折线化,epsilon阈值 距离大于此阈值则舍弃，小于此阈值则保留，epsilon越小，折线的形状越“接近”曲线。0.01的曲率过大
+            epsilon = 0.002 * cv2.arcLength(contour, True)
             approx = cv2.approxPolyDP(contour, epsilon, True)
             points = approx.reshape((-1, 2))
             if points.shape[0]<4:
+                ##扩张时候导致点太少了
                 continue
             score = self.box_score_fast(pred, points.reshape(-1, 2))
 
             if score < self.score_thresh:
+
                 continue
 
             if points.shape[0]<2:
@@ -153,6 +159,7 @@ class DBHead(nn.Module):
             box = self.unclip(points, unclip_ratio=2.0)
 
             if len(box) < 1:
+
                 continue
 
 
@@ -162,6 +169,7 @@ class DBHead(nn.Module):
             _, sside = self.get_mini_boxes(box.reshape((-1, 1, 2)))
 
             if sside < self.min_size + 2:
+
                 continue
             #恢复原图尺寸
             # box[:, 0] = np.clip(
@@ -170,7 +178,6 @@ class DBHead(nn.Module):
             #     np.round(box[:, 1] / height * dest_height), 0, dest_height)
             boxes.append(box)
             scores.append(score)
-
 
         return boxes,scores
 

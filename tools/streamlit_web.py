@@ -21,8 +21,8 @@ import streamlit as st
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 BASEDIR = os.path.abspath(os.path.dirname(__file__))
 
-det_config_file = os.path.join(BASEDIR,"../configs/detection/pan/pandetect.py")
-det_checkpoint = os.path.join(BASEDIR,"../work_dirs/pan/PAN_epoch_24.pth")
+det_config_file = os.path.join(BASEDIR,"../configs/detection/DB/db_resnet18_deform.py")
+det_checkpoint = os.path.join(BASEDIR,"../work_dirs/db/db_resnet18_deform_adam/DBDetector_epoch_120.pth")
 
 
 rec_config_file = os.path.join(BASEDIR,"../configs/recognition/fourstagerecogition/tps_resnet_lstm_attention_chi_iter.py")

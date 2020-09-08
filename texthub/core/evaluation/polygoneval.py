@@ -1,6 +1,7 @@
 import Polygon as plg
 import numpy as np
 import cv2
+from collections import OrderedDict
 """
 像素级别的iou计算
 """
@@ -62,6 +63,8 @@ def eval_poly_detect(preds:[[plg.Polygon]],gts:[[plg.Polygon]],thresh = 0.5):
             for gt_id,gt_poly in enumerate(image_gts):
                 union = plg_get_union(pred_poly, gt_poly)
                 inter = plg_get_intersection(pred_poly, gt_poly)
+                if union==0:
+                    continue
                 if (inter * 1.0 / union) >= thresh:
                     if gt_id not in cover:
                         flag = True
@@ -71,10 +74,13 @@ def eval_poly_detect(preds:[[plg.Polygon]],gts:[[plg.Polygon]],thresh = 0.5):
                 tp += 1.0
             else:
                 fp += 1.0
-    precision = tp / (tp + fp)
+    if (tp+fp)==0:
+        precision = 0
+    else:
+        precision = tp / (tp + fp)
     recall = tp / npos
     hmean = 0 if (precision + recall) == 0 else (2.0 * precision * recall) / (precision + recall)
-    return dict(
+    return OrderedDict(
         precision=precision,
         recall=recall,
         hmean=hmean

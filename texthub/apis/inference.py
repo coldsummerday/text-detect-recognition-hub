@@ -107,7 +107,7 @@ def inference_detector(model,img:str):
 
     #pred_bbox_list(b,n,4,2)  [(x1,y1),(x2,y2),(x3,y3),(x4,y4)] for bbox model
     batch_pred_bbox = pred_bbox_list[0]
-
+    score_bbox_list = score_bbox_list[0]
     w_scale = float(ori_w) / new_w
     h_scale = float(ori_h) / new_h
 

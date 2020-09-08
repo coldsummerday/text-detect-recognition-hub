@@ -19,7 +19,6 @@ class DBDetector(BaseDetector):
         self.neck =  None
         if neck is not None:
             self.neck = build_neck(neck)
-
         self.det_head = build_head(det_head)
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
@@ -35,7 +34,7 @@ class DBDetector(BaseDetector):
 
     def init_weights(self, pretrained=None):
         if hasattr(self.backbone, "init_weights"):
-            self.backbone.init_weights(pretrained)
+            self.backbone.init_weights(True)
         if self.neck!=None and hasattr(self.neck, "init_weights"):
             self.neck.init_weights(pretrained)
         self.det_head.init_weights()

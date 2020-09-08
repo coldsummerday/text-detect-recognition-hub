@@ -134,6 +134,7 @@ class L1BalanceCELoss(nn.Module):
 
         #在runner中会将该loss 求和回传
         result = dict(
-            loss_bce=self.bce_scale*bce_loss, loss_thresh_l1=self.l1_scale * thresh_l1_loss,loss_thresh_dice=thresh_dice_loss
+            loss_bce=bce_loss, loss_thresh_l1=thresh_l1_loss,loss_thresh_dice=thresh_dice_loss,
+            loss = self.bce_scale*bce_loss + self.l1_scale * thresh_l1_loss + thresh_dice_loss
         )
         return result

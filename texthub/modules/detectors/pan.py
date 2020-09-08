@@ -87,6 +87,6 @@ class PANFeatureModel(nn.Module):
 
     def init_weights(self,pretrained=None):
         if hasattr(self.backbone,"init_weights"):
-            self.backbone.init_weights(pretrained)
+            self.backbone.init_weights(True)
         if self.neck and hasattr(self.neck,"init_weights"):
             self.neck.init_weights(pretrained)

@@ -29,15 +29,13 @@ class PseHead(nn.Module):
 
 
     def init_weights(self, pretrained=None):
-        if pretrained is None:
-            for m in self.modules():
-                if isinstance(m, nn.Conv2d):
-                    nn.init.kaiming_normal_(m.weight)
-                elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                    m.weight.data.fill_(1.)
-                    m.bias.data.fill_(1e-4)
-        else:
-            pass
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight)
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                m.weight.data.fill_(1.)
+                m.bias.data.fill_(1e-4)
+
 
     def forward(self, data: dict, return_loss=False):
         if return_loss:
@@ -88,7 +86,7 @@ class PseHead(nn.Module):
         score = preds[-1].astype(np.float32)
         preds = preds > self.threshold
 
-        show_img(preds)
+        # show_img(preds)
 
         pse_pred, label_values = pse_warpper(preds, 5)
         polygon_list = []
@@ -96,8 +94,8 @@ class PseHead(nn.Module):
         for label_value in label_values:
             points = np.array(np.where(pse_pred == label_value)).transpose((1, 0))[:, ::-1]
 
-            if points.shape[0] < 800 / (1 * 1):
-                continue
+            # if points.shape[0] < 800 / (1 * 1):
+            #     continue
 
             score_i = np.mean(score[pse_pred == label_value])
             if score_i < self.pred_score:

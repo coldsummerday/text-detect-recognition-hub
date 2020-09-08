@@ -72,6 +72,14 @@ class FPEM_FFM(nn.Module):
         y = self.out_conv(Fy)
         return y
 
+    def init_weights(self,pretrained=None):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight)
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 1e-4)
+
 
 class FPEM(nn.Module):
     def __init__(self, in_channels=128):

@@ -4,6 +4,95 @@ from ....datasets import build_dataset
 import random
 import torch
 from torch.nn.parallel import DataParallel,DistributedDataParallel
+import Polygon as plg
+from ....core.evaluation import eval_poly_detect,eval_text
+
+class DetEvalHook(BaseHook):
+    def __init__(self,dataset,
+                 batch_size=4,
+                 by_epoch=False,
+                 interval=5):
+        if isinstance(dataset, Dataset):
+            self.dataset = dataset
+        elif isinstance(dataset, dict):
+            self.dataset = build_dataset(dataset)
+        else:
+            raise TypeError(
+                'dataset must be a Dataset object or a dict, not {}'.format(
+                    type(dataset)))
+        self.data_loader = torch.utils.data.DataLoader(
+            self.dataset,
+            batch_size=batch_size
+        )
+        self.by_epoch = by_epoch
+        self.interval = interval
+
+    def after_train_epoch(self, runner):
+        if not self.by_epoch or not self.every_n_epochs(runner, self.interval):
+            return
+        else:
+            self.eval(runner)
+    def after_train_iter(self, runner):
+        if self.by_epoch or not self.every_n_iters(runner,self.interval):
+            return
+        else:
+            self.eval(runner)
+
+
+    def eval(self,runner):
+        runner.model.eval()
+        if hasattr(runner.model, "module"):
+            device = next(runner.model.module.parameters()).device
+        else:
+            device = next(runner.model.parameters()).device
+        runner.model.eval()
+        results = []
+        gts = []
+        for data in (self.data_loader):
+            data['img'] = data['img'].to(device)
+            with torch.no_grad():
+                result = runner.model(data=data, return_loss=False)
+            if type(runner.model) == DataParallel or type(runner.model) == DistributedDataParallel:
+                result, scores = runner.model.module.postprocess(result)
+            else:
+                result, scores = runner.model.postprocess(result)
+            results.extend(detect_pred_func(result))
+            gt = detect_gt_func(data)
+            gts.extend(gt)
+        eval_result_dict=eval_poly_detect(results,gts)
+        log_str_list = []
+        for key,value in eval_result_dict.items():
+            log_str_list.append("{}:{}".format(key,value))
+        runner.logger.info(",".join(log_str_list))
+        runner.model.train()
+
+
+def detect_pred_func(result):
+    batch_polys = []
+    for batch_pred in result:
+        polys = []
+        for bbox in batch_pred:
+            poly = plg.Polygon(bbox)
+            polys.append(poly)
+        batch_polys.append(polys)
+    return batch_polys
+
+def detect_gt_func(data:dict):
+    gts = data.get("gt_polys")
+    return tensor2poly(gts)
+def tensor2poly(gt_polys:torch.Tensor):
+    #(b,150,4,2)
+    results = []
+    for array in gt_polys:
+        image_polys = []
+        for points in array:
+            if points[0,0]!=0:
+                poly_gon = plg.Polygon(points.cpu().numpy())
+                image_polys.append(poly_gon)
+        results.append(image_polys)
+    return results
+
+
 
 class RecoEvalHook(BaseHook):
     def __init__(self,dataset,interval=2,show_number=5,**eval_kwargs):
