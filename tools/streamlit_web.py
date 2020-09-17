@@ -21,8 +21,8 @@ import streamlit as st
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 BASEDIR = os.path.abspath(os.path.dirname(__file__))
 
-det_config_file = os.path.join(BASEDIR,"../configs/detection/DB/db_resnet18_deform.py")
-det_checkpoint = os.path.join(BASEDIR,"../work_dirs/db/db_resnet18_deform_adam/DBDetector_epoch_120.pth")
+det_config_file = os.path.join(BASEDIR,"../configs/detection/DB/db_resnet18_deform_border.py")
+det_checkpoint = os.path.join(BASEDIR,"../work_dirs/db/db_resnet18_deform_border/DBDetector_epoch_290.pth")
 
 
 rec_config_file = os.path.join(BASEDIR,"../configs/recognition/fourstagerecogition/tps_resnet_lstm_attention_chi_iter.py")
@@ -66,21 +66,27 @@ def text_recognition(src):
     image_bytes = bytearray(image_data)
     image_array = np.asarray(image_bytes)
     cv2_img_array = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+    cv2_img_array = cv2.cvtColor(cv2_img_array, cv2.COLOR_BGR2RGB)
     batch_pred_bbox,score_bbox_list = inference_detector(det_model, cv2_img_array)
 
     pred_texts = []
     imgs_cropped = []
+    edeg_pred_bbox = []
     for bbox in batch_pred_bbox:
         #应该检测边缘有没有黑色像素再决定要不要添加多边形区域轮廓
         # #是否增大检测面积
-        # bbox = addPolygonEdge(bbox)
-
+        bbox = addPolygonEdge(bbox,distance=3)
+        if len(bbox)==0:
+            continue
         croped_img = crop_by_poly(img=cv2_img_array, points=bbox)
 
         predtext = inference_recognizer(rec_model, croped_img)
         pred_texts.append(predtext)
         imgs_cropped.append(croped_img)
-    img = draw_ploygon_img(cv2_img_array,batch_pred_bbox)
+
+        edeg_pred_bbox.append(bbox)
+
+    img = draw_ploygon_img(cv2_img_array,edeg_pred_bbox)
     return img, pred_texts, imgs_cropped
 
 
@@ -106,15 +112,16 @@ def addPolygonEdge(bbox:np.ndarray,distance=1.5):
 def draw_ploygon_img(img:np.ndarray,batch_pred_bbox:[np.ndarray]):
     for point in batch_pred_bbox:
         point = point.astype(int)
-        cv2.polylines(img, [point], True, (0, 255, 255))
+        cv2.polylines(img, [point], True, (0, 255, 0))
     return img
 
 def display_recognition_result(imgs_cropped, texts):
-    contents = []
-    for row in texts:
-        single_content = 'CONTENT:' + row
-        contents.append(single_content)
-    st.image(imgs_cropped, caption  = contents)
+    # contents = []
+    # for row in texts:
+    #     single_content = 'CONTENT:' + row
+    #     contents.append(single_content)
+    # st.image(imgs_cropped[::-1], caption  = texts[::-1])
+    st.image(imgs_cropped,caption=texts)
 
 def main():
     st.set_option('deprecation.showfileUploaderEncoding', False)
@@ -127,7 +134,7 @@ def main():
 
     # checkboxes对象
     recognition_flag = st.checkbox('文字识别')
-    extraction_flag = st.checkbox('语义提取')
+    # extraction_flag = st.checkbox('语义提取')
 
     # 执行按钮
     if st.button("执行"):

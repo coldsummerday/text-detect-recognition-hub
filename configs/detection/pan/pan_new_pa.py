@@ -1,35 +1,31 @@
-
-batch_size = 16
+batch_size = 8
 model = dict(
-    type="DBDetector",
+    type="PAN",
     pretrained=None,
     backbone=dict(
         type="DetResNet",
         depth=18,
         arch="resnet18",
-        norm="bn",
-        stage_with_dcn=[False, True, True, True],
-        dcn_config=dict(
-            modulated=True,
-            deformable_groups=1
-        )
+        norm="gn"
     ),
     neck=dict(
-        type="SegDBNeck",
-        in_channels=[64,128,256,512],
-        inner_channels = 256,
+        type="FPEM_FFM",
+        backbone_out_channels=[64, 128, 256, 512],
+        fpem_repeat=4,
     ),
-    det_head=dict(
-        type="DBHead",
-        inner_channels=256,
-        neck_out_channels=256 // 4,
-        k=50,
-        thresh=0.2,
-        score_thresh=0.5,
-        max_candidates=1000,
-        # is_output_polygon=False,
+    bbox_head=dict(
+        type="PanCPPHead",
+        alpha=0.5,
+        beta=0.25,
+        delta_agg=0.5,
+        delta_dis=3,
+        ohem_ratio=3,
+        reduction='mean',
+        min_area = 5,
+        min_score = 0.85,
     )
 )
+
 train_cfg = dict()
 test_cfg = dict()
 dataset_type = 'IcdarDetectDataset'
@@ -40,23 +36,24 @@ train_pipeline = [
     dict(type="DetectResize",img_scale=(640,640)),
     dict(type="RandomFlip",flip_ratio=0.3),
     dict(type="RandomRotate",degrees=10),
-    dict(type="GenerateTrainMask",shrink_ratio_list=[0.4]),
-    dict(type="MakeBorderMap",thresh_min=0.4,thresh_max = 0.8,border_edge=3),
+    dict(type="GenerateTrainMask",shrink_ratio_list=[1,0.4]),
     dict(type="Ndarray2tensor"),
-    dict(type='Collect', keys=['img','gt',"mask","thresh_map","thresh_mask"]),
+    dict(type='Collect', keys=['img','gt',"mask"]),
 ]
+
 test_pipeline = [
     dict(type="DetectResize",img_scale=(640,640)),
     dict(type="Ndarray2tensor"),
     dict(type='Collect', keys=['img']),
 ]
 val_pipeline = [
+
+
     dict(type="DetectResize",img_scale=(640,640)),
     dict(type="Ndarray2tensor"),
     dict(type="Gt2SameDim",max_label_num = 250),
     dict(type='Collect', keys=['img',"gt_polys"]),
 ]
-
 data = dict(
     batch_size=batch_size,
     train=dict(
@@ -64,31 +61,29 @@ data = dict(
         root=data_root,
         pipeline = train_pipeline,
         img_channel=3,
-        line_flag = False
+        line_flag=False,  ##icdar15 format
         ),
     val = dict(
         type=dataset_type,
         root=val_data_root,
         pipeline = val_pipeline,
         img_channel=3,
-        line_flag = False
+        line_flag=False,  ##icdar15 format
         ),
     test=dict(
         type=dataset_type,
         root=val_data_root,
         pipeline = test_pipeline,
-        img_channel=3,
-        line_flag = False
+        line_flag=False,  ##icdar15 format
         )
 )
-
 # optimizer
-optimizer = dict(type='Adam', lr=1e-4, weight_decay=0.0001)
+optimizer = dict(type='Adam', lr=0.001, amsgrad=True, weight_decay=0)
 dist_params = dict(backend='nccl')
 train_hooks = [
     dict(
         type="CheckpointHook",
-        interval=10,## 5个epoch 保存一个结果
+        interval=5,## 2个epoch 保存一个结果
         by_epoch=True,
         priority = 40,
     ),
@@ -122,7 +117,7 @@ train_hooks = [
         ),
         batch_size=batch_size,
         by_epoch=True,
-        interval=5,
+        interval=20,
         priority=80,
     )
     ##eval hooks
@@ -130,11 +125,11 @@ train_hooks = [
 ]
 
 # runtime settings
-seed = 10
+seed = 1211
 by_epoch = True
-max_number = 300
+max_number = 120
 # by_epoch = False
 # max_number = 30000
 log_level = 'INFO'
-work_dir = './work_dirs/db/db_resnet18_deform_border/'
+work_dir = './work_dirs/pan_cpp/'
 resume_from = None

@@ -66,15 +66,23 @@ class DBHead(nn.Module):
     def forward_test(self,data:dict):
         features = data.get("img")
         binary = self.binarize_layer(features)
+
+
+
         ##用thresh_bionary结果会更准确
         thresh = self.thresh_layer(features)
         thresh_binary = self.step_function(binary, thresh)
+        """
+        for debug
+        """
+        # thresh_numpy = thresh.cpu().numpy()
+        # thresh_binary_numpy = thresh_binary.cpu().numpy()
+        # binary_numpy = binary.cpu().numpy()
         # def toPILImage(img_tensor: torch.Tensor) -> Image:
         #     image = transforms.ToPILImage()(img_tensor)
         #     return image
         # toPILImage(thresh_binary[0].clone().cpu()).show()
-        # plt.figure()
-        # plt.imshow(thresh_binary[0][0].clone().cpu(), cmap='gray')
+
         return thresh_binary
 
     def forward_train(self,data:dict):
@@ -139,7 +147,10 @@ class DBHead(nn.Module):
         contours, _ = cv2.findContours(
             (segmentation * 255).astype(np.uint8),
             cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        for contour in contours[:self.max_candidates]:
+        ##逆序
+        contours = contours[:self.max_candidates][::-1]
+        for contour in contours:
+        # for contour in contours[:self.max_candidates]:
             #一个连续光滑曲线折线化,epsilon阈值 距离大于此阈值则舍弃，小于此阈值则保留，epsilon越小，折线的形状越“接近”曲线。0.01的曲率过大
             epsilon = 0.002 * cv2.arcLength(contour, True)
             approx = cv2.approxPolyDP(contour, epsilon, True)
@@ -159,7 +170,6 @@ class DBHead(nn.Module):
             box = self.unclip(points, unclip_ratio=2.0)
 
             if len(box) < 1:
-
                 continue
 
 

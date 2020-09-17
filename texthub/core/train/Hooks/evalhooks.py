@@ -40,7 +40,6 @@ class DetEvalHook(BaseHook):
 
 
     def eval(self,runner):
-        runner.model.eval()
         if hasattr(runner.model, "module"):
             device = next(runner.model.module.parameters()).device
         else:

@@ -1,6 +1,3 @@
-
-from ...ops.pan import get_points,pan_cpp_f,get_num
-##ops.pse为cpp实现方式
 import numpy as np
 from queue import Queue
 import cv2
@@ -8,13 +5,16 @@ import torch
 import torch.nn as nn
 import itertools
 from ..registry import HEADS
-import Polygon as plg
-
+from ...ops.pa import pa_cpp_f
+import pyclipper
 @HEADS.register_module
-class PanHead(nn.Module):
-    def __init__(self, alpha=0.5, beta=0.25, delta_agg=0.5, delta_dis=3, ohem_ratio=3, reduction='mean'):
+class PanCPPHead(nn.Module):
+    def __init__(self,min_area = 5,
+                 min_score = 0.85,
+                 alpha=0.5, beta=0.25, delta_agg=0.5, delta_dis=3, ohem_ratio=3, reduction='mean',
+                 is_output_polygon = False):
         """
-                Implement PSE Loss.
+
                 :param alpha: loss kernel 前面的系数
                 :param beta: loss agg 和 loss dis 前面的系数
                 :param delta_agg: 计算loss agg时的常量
@@ -24,7 +24,9 @@ class PanHead(nn.Module):
                 """
         super().__init__()
         self.loss = PANLoss(alpha=alpha, beta=beta, delta_agg=delta_agg, delta_dis=delta_dis, ohem_ratio=ohem_ratio, reduction=reduction)
-
+        self.min_area = min_area
+        self.min_score = min_score
+        self.is_output_polygon = is_output_polygon
     def forward(self,data:dict,return_loss=False):
         """
         forward do nothing,
@@ -51,7 +53,8 @@ class PanHead(nn.Module):
         batch_bbox_list = []
         score_list = []
         for batch_preds in preds:
-            _, boxes_list,score_array = decode(batch_preds)
+            boxes_list,score_array = self.get_results(batch_preds)
+
             batch_bbox_list.append(boxes_list)
             score_list.append(score_array)
         return batch_bbox_list,score_list #bbox,scores
@@ -60,9 +63,119 @@ class PanHead(nn.Module):
         pass
 
 
+    def get_results(self,pred:torch.Tensor):
+        """
+        preds (6,h,w)
+        [:,0,:,:] pred_text_pixel
+        [:,1,:,:] textkernel
+        [:,2:,:,:] similarity_vectors
+        """
+
+        score = torch.sigmoid(pred[0,:,:])
+        kernels = pred[:2,:,:] > 0
+        text_mask = kernels[:1,:,:]
+
+        ##kernel * text 保证kernel 肯定在text实例里面
+        kernels[1:,:,:] = kernels[1:,:,:] * text_mask
+        similarity_vectors = pred[2:,:,:] * text_mask.float()
+
+        score = score.data.cpu().numpy().astype(np.float32)
+        kernels = kernels.data.cpu().numpy().astype(np.uint8)
+        similarity_vectors = similarity_vectors.cpu().numpy().astype(np.float32)
 
 
+        label = _pa_warpper(kernels, similarity_vectors, min_area=self.min_area)
+        label_num = np.max(label) + 1
 
+        bboxes = []
+        scores = []
+
+        for i in range(1,label_num):
+            ind = label==i
+            points = np.array(np.where(ind)).transpose((1,0))
+            if points.shape[0] < self.min_area:
+                label[ind] = 0
+                continue
+            score_i = np.mean(score[ind])
+            if score_i < self.min_score:
+                label[ind] = 0
+                continue
+            if  self.is_output_polygon:
+                ##BUG eval ploygon
+                raise NotImplementedError
+                binary = np.zeros(label.shape, dtype='uint8')
+                binary[ind] = 1
+                contours, _  = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+                contour = contours[0]
+                epsilon = 0.002 * cv2.arcLength(contour, True)
+                approx = cv2.approxPolyDP(contour, epsilon, True)
+                bbox = approx.reshape((-1, 2)).astype(np.int32)
+                if bbox.shape[0] < 4:
+                    continue
+                bboxes.append(bbox)
+            else:
+                rect = cv2.minAreaRect(points[:, ::-1])
+                bbox = cv2.boxPoints(rect)
+                bboxes.append([bbox[1], bbox[2], bbox[3], bbox[0]])
+            scores.append(score_i)
+        if not self.is_output_polygon:
+            bboxes = np.array(bboxes)
+        return bboxes,scores
+
+    def unclip(self, box:np.ndarray, unclip_ratio=1.5):
+        """
+        box :(N,2)
+        The Clipper library uses integers instead of floating point values to preserve numerical robustness
+        """
+        poly = box.copy().astype(np.int)
+        distance = cv2.contourArea(poly) * unclip_ratio/ cv2.arcLength(poly, True)
+        offset = pyclipper.PyclipperOffset()
+        offset.AddPath(poly, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
+        # expanded = np.array(offset.Execute(distance)) #offset.Execute(distance)有时候会有两个结果
+        polygon_expanded = offset.Execute(distance)
+        ##收缩放大后可能产生多个区域，选择点个数最多的那个多边形（暂时最大
+        if len(polygon_expanded)>1:
+            max_len= 0
+            max_polygon =None
+            for expanded_poly in polygon_expanded:
+                if len(expanded_poly) > max_len:
+                    max_len = len(expanded_poly)
+                    max_polygon = expanded_poly
+            expanded = np.array(max_polygon)
+        else:
+            expanded = np.array(polygon_expanded)
+        return expanded
+
+
+# def pa_warpper(kernels:np.ndarray,similarity_vectors:np.ndarray,min_area = 2)->np.ndarray:
+#     """
+#     kernels:(2,h,w)
+#     similarity_vectors:(4,h,w)
+#
+#     return (h,w)
+#     """
+#     ##文字区域
+#     _,cc = cv2.connectedComponents(kernels[0],connectivity=4)
+#     ##kernel 最小连通区域,从label出发将cc中的像素进行聚类
+#     label_num,label = cv2.connectedComponents(kernels[1],connectivity=4)
+#
+#
+#
+#     return pa_cpp_f(kernels[-1], similarity_vectors, label, cc, label_num, min_area)
+
+def _pa_warpper(kernels: np.ndarray, similarity_vectors: np.ndarray, min_area=2) -> np.ndarray:
+    """
+    kernels:(2,h,w)
+    similarity_vectors:(4,h,w)
+
+    return (h,w)
+    """
+    ##文字区域
+    _, cc = cv2.connectedComponents(kernels[0], connectivity=4)
+    ##kernel 最小连通区域,从label出发将cc中的像素进行聚类
+    label_num, label = cv2.connectedComponents(kernels[1], connectivity=4)
+    return pa_cpp_f(similarity_vectors, label, cc, label_num, min_area)
 
 
 
@@ -70,7 +183,7 @@ class PanHead(nn.Module):
 class PANLoss(nn.Module):
     def __init__(self, alpha=0.5, beta=0.25, delta_agg=0.5, delta_dis=3, ohem_ratio=3, reduction='mean'):
         """
-        Implement PSE Loss.
+        Implement PAN Loss.
         :param alpha: loss kernel 前面的系数
         :param beta: loss agg 和 loss dis 前面的系数
         :param delta_agg: 计算loss agg时的常量
@@ -254,269 +367,6 @@ class PANLoss(nn.Module):
         selected_masks = torch.from_numpy(selected_masks).float()
 
         return selected_masks
-
-
-
-
-def decode_ploy(preds, scale=1, threshold=0.7311, min_area=5):
-    """
-        在输出上使用sigmoid 将值转换为置信度，并使用阈值来进行文字和背景的区分
-        :param preds: 网络输出
-        :param scale: 网络的scale
-        :param threshold: sigmoid的阈值
-        :return: 文本框的ploy
-    """
-    preds[:2, :, :] = torch.sigmoid(preds[:2, :, :])
-    preds = preds.detach().cpu().numpy()
-    score = preds[0].astype(np.float32)
-    text = preds[0] > threshold  # text
-    kernel = (preds[1] > threshold) * text  # kernel
-    similarity_vectors = preds[2:].transpose((1, 2, 0))
-
-    label_num, label = cv2.connectedComponents(kernel.astype(np.uint8), connectivity=4)
-    label_values = []
-    label_sum = get_num(label, label_num)
-    for label_idx in range(1, label_num):
-        if label_sum[label_idx] < min_area:
-            continue
-        label_values.append(label_idx)
-
-    pred = pan_cpp_f(text.astype(np.uint8), similarity_vectors, label, label_num, 0.8)
-    pred = pred.reshape(text.shape)
-
-    label_points = get_points(pred, score, label_num)
-    result = []
-    for label_value, label_point in label_points.items():
-        if label_value not in label_values:
-            continue
-        score_i = label_point[0]
-        label_point = label_point[2:]
-        points = np.array(label_point, dtype=int).reshape(-1, 2)
-
-        if points.shape[0] < 100 / (scale * scale):
-            continue
-
-        if score_i < 0.93:
-            continue
-        points = mask_points_to_contours_points(points)
-        result.append(plg.Polygon(points))
-    return result
-    #     rect = cv2.minAreaRect(points)
-    #     bbox = cv2.boxPoints(rect)
-    #     bbox_list.append([bbox[1], bbox[2], bbox[3], bbox[0]])
-    # # preds是返回的mask
-    # return pred, np.array(bbox_list)
-
-def mask_points_to_contours_points(points):
-    ##从mask中找最大临接矩阵
-    max_value = np.max(points)
-    mask = np.zeros((max_value + 1, max_value + 1), dtype='uint8')
-    putPoints(mask, points)
-    # (16,325)的点,如果不转置的话会变(325,16) 原因cv2图的存储方式不是w,h,而是 h,w
-    contours, hierarchy = cv2.findContours(mask.T, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    points = contours[0].reshape(-1, 2)
-    return points
-
-def putPoints(mask, points):
-    ##不能直接mask[points]=1 ,会导致整行整列都为1
-    for point in points:
-        x, y = point
-        mask[x, y] = 1
-
-
-
-def decode_bbox(preds, scale=1, threshold=0.7311, min_area=5):
-    """
-    在输出上使用sigmoid 将值转换为置信度，并使用阈值来进行文字和背景的区分
-    :param preds: 网络输出
-    :param scale: 网络的scale
-    :param threshold: sigmoid的阈值
-    :return: 最后的输出图和文本框
-    """
-    preds[:2, :, :] = torch.sigmoid(preds[:2, :, :])
-    preds = preds.detach().cpu().numpy()
-    score = preds[0].astype(np.float32)
-    text = preds[0] > threshold  # text
-    kernel = (preds[1] > threshold) * text  # kernel
-    similarity_vectors = preds[2:].transpose((1, 2, 0))
-
-    label_num, label = cv2.connectedComponents(kernel.astype(np.uint8), connectivity=4)
-    label_values = []
-    label_sum = get_num(label, label_num)
-    for label_idx in range(1, label_num):
-        if label_sum[label_idx] < min_area:
-            continue
-        label_values.append(label_idx)
-
-    pred = pan_cpp_f(text.astype(np.uint8), similarity_vectors, label, label_num, 0.8)
-    pred = pred.reshape(text.shape)
-
-    bbox_list = []
-    label_points = get_points(pred, score, label_num)
-
-    for label_value, label_point in label_points.items():
-        if label_value not in label_values:
-            continue
-        score_i = label_point[0]
-        label_point = label_point[2:]
-        points = np.array(label_point, dtype=int).reshape(-1, 2)
-
-        if points.shape[0] < 100 / (scale * scale):
-            continue
-
-        if score_i < 0.93:
-            continue
-        rect = cv2.minAreaRect(points)
-        bbox = cv2.boxPoints(rect)
-        bbox_list.append([bbox[1], bbox[2], bbox[3], bbox[0]])
-    # preds是返回的mask
-    return np.array(bbox_list)
-
-
-
-def decode(preds, scale=1, threshold=0.7311, min_area=5):
-    """
-    在输出上使用sigmoid 将值转换为置信度，并使用阈值来进行文字和背景的区分
-    :param preds: 网络输出
-    :param scale: 网络的scale
-    :param threshold: sigmoid的阈值
-    :return: 最后的输出图和文本框
-    """
-    preds[:2, :, :] = torch.sigmoid(preds[:2, :, :])
-    preds = preds.detach().cpu().numpy()
-    score = preds[0].astype(np.float32)
-    text = preds[0] > threshold  # text
-    kernel = (preds[1] > threshold) * text  # kernel
-    similarity_vectors = preds[2:].transpose((1, 2, 0))
-
-    label_num, label = cv2.connectedComponents(kernel.astype(np.uint8), connectivity=4)
-    label_values = []
-    label_sum = get_num(label, label_num)
-    for label_idx in range(1, label_num):
-        if label_sum[label_idx] < min_area:
-            continue
-        label_values.append(label_idx)
-
-    pred = pan_cpp_f(text.astype(np.uint8), similarity_vectors, label, label_num, 0.8)
-    pred = pred.reshape(text.shape)
-
-    bbox_list = []
-    bbox_score_list =[]
-    label_points = get_points(pred, score, label_num)
-
-    for label_value, label_point in label_points.items():
-        if label_value not in label_values:
-            continue
-        score_i = label_point[0]
-        label_point = label_point[2:]
-        points = np.array(label_point, dtype=int).reshape(-1, 2)
-
-        if points.shape[0] < 100 / (scale * scale):
-            continue
-
-        if score_i < 0.93:
-            continue
-        rect = cv2.minAreaRect(points)
-
-
-        bbox = cv2.boxPoints(rect)
-        bbox_score = box_score_fast(text.astype(np.uint8), bbox)
-        bbox_list.append([bbox[1], bbox[2], bbox[3], bbox[0]])
-        bbox_score_list.append(bbox_score)
-    # preds是返回的mask
-    return pred, np.array(bbox_list),np.array(bbox_score_list)
-
-def box_score_fast(bitmap:np.ndarray, _box:np.ndarray):
-    """
-    从概率图中得到某个polygon的得分，即统计polygon内bitmap的均值
-    bitmap:(H, W)
-    _box:(N,2)
-    """
-    h, w = bitmap.shape[:2]
-    box = _box.copy()
-    xmin = np.clip(np.floor(box[:, 0].min()).astype(np.int), 0, w - 1)
-    xmax = np.clip(np.ceil(box[:, 0].max()).astype(np.int), 0, w - 1)
-    ymin = np.clip(np.floor(box[:, 1].min()).astype(np.int), 0, h - 1)
-    ymax = np.clip(np.ceil(box[:, 1].max()).astype(np.int), 0, h - 1)
-
-    mask = np.zeros((ymax - ymin + 1, xmax - xmin + 1), dtype=np.uint8)
-    box[:, 0] = box[:, 0] - xmin
-    box[:, 1] = box[:, 1] - ymin
-    cv2.fillPoly(mask, box.reshape(1, -1, 2).astype(np.int32), 1)
-    return cv2.mean(bitmap[ymin:ymax+1, xmin:xmax+1], mask)[0]
-
-
-
-def decode_dice(preds, scale=1, threshold=0.7311, min_area=5):
-    import pyclipper
-    preds[:2, :, :] = torch.sigmoid(preds[:2, :, :])
-    preds = preds.detach().cpu().numpy()
-    text = preds[0] > threshold  # text
-    kernel = (preds[1] > threshold) * text  # kernel
-
-    label_num, label = cv2.connectedComponents(kernel.astype(np.uint8), connectivity=4)
-    bbox_list = []
-    for label_idx in range(1, label_num):
-        points = np.array(np.where(label_num == label_idx)).transpose((1, 0))[:, ::-1]
-
-        rect = cv2.minAreaRect(points)
-        poly = cv2.boxPoints(rect).astype(int)
-
-        d_i = cv2.contourArea(poly) * 1.5 / cv2.arcLength(poly, True)
-        pco = pyclipper.PyclipperOffset()
-        pco.AddPath(poly, pyclipper.JT_ROUND, pyclipper.ET_CLOSEDPOLYGON)
-        shrinked_poly = np.array(pco.Execute(-d_i))
-
-        if cv2.contourArea(shrinked_poly) < 800 / (scale * scale):
-            continue
-
-        bbox_list.append([shrinked_poly[1], shrinked_poly[2], shrinked_poly[3], shrinked_poly[0]])
-    return label, np.array(bbox_list)
-
-
-"""
-pse的py实现方式
-"""
-def get_dis(sv1, sv2):
-    return np.linalg.norm(sv1 - sv2)
-def pse_py(text, similarity_vectors, label, label_values, dis_threshold=0.8):
-    pred = np.zeros(text.shape)
-    queue = Queue(maxsize=0)
-    points = np.array(np.where(label > 0)).transpose((1, 0))
-
-    for point_idx in range(points.shape[0]):
-        y, x = points[point_idx, 0], points[point_idx, 1]
-        label_value = label[y, x]
-        queue.put((y, x, label_value))
-        pred[y, x] = label_value
-    # 计算kernel的值
-    d = {}
-    for i in label_values:
-        kernel_idx = label == i
-        kernel_similarity_vector = similarity_vectors[kernel_idx].mean(0)  # 4
-        d[i] = kernel_similarity_vector
-
-    dx = [-1, 1, 0, 0]
-    dy = [0, 0, -1, 1]
-    kernal = text.copy()
-    while not queue.empty():
-        (y, x, label_value) = queue.get()
-        cur_kernel_sv = d[label_value]
-        for j in range(4):
-            tmpx = x + dx[j]
-            tmpy = y + dy[j]
-            if tmpx < 0 or tmpy >= kernal.shape[0] or tmpy < 0 or tmpx >= kernal.shape[1]:
-                continue
-            if kernal[tmpy, tmpx] == 0 or pred[tmpy, tmpx] > 0:
-                continue
-            if np.linalg.norm(similarity_vectors[tmpy, tmpx] - cur_kernel_sv) >= dis_threshold:
-                continue
-            queue.put((tmpy, tmpx, label_value))
-            pred[tmpy, tmpx] = label_value
-    return pred
-
-
-
 
 
 

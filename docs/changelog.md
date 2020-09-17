@@ -26,3 +26,16 @@
 
 2020/09/05实验：
 测试修改了backbone初始化后的pse，同时warmup lr调高至1e-5，warmup只在前5个epoch进行
+
+
+2020/09/06:
+db调整了epsilon的计算系数
+一个连续光滑曲线折线化,epsilon阈值 距离大于此阈值则舍弃，小于此阈值则保留，epsilon越小，折线的形状越“接近”曲线。0.01的曲率过大
+epsilon = 0.002 * cv2.arcLength(contour, True)
+approx = cv2.approxPolyDP(contour, epsilon, True)
+
+2020/09/16 实验
+* 修改了pan的后处理pa计算，代码：texthub.ops.pa.src/pa.cpp
+* 修改pan 的get_result
+bug：pan 输出多边形的时候，eval时候用ploygon3 会出现segmentation fault，所以暂时先实现输出矩形框
+

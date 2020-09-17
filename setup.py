@@ -90,6 +90,15 @@ if __name__ == '__main__':
                 language='c++11',
 
             ),
+            make_cpp_ext(
+                name="pa_cpp",
+                module="texthub.ops.pa",
+                sources=["src/pa.cpp"],
+                include_dirs=['include/pybind11'],
+                extra_compile_args=extra_compile_args,
+                language='c++11',
+
+            ),
             make_cuda_ext(
                 name='deform_conv_cuda',
                 module="texthub.ops.dcn",

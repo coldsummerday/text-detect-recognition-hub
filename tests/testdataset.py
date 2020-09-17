@@ -11,7 +11,7 @@ import  torch
 from PIL import Image
 from torchvision import transforms
 # config_file = "./configs/recognition/fourstagerecogition/tps_resnet_lstm_attention_chi_iter_maskresize.py"
-config_file = "./configs/detection/DB/db_resnet18_deform.py"
+config_file = "../configs/detection/DB/db_resnet18_deform.py"
 cfg = Config.fromfile(config_file)
 ##
 
@@ -27,7 +27,8 @@ b=torch.utils.data.DataLoader(
     dataset,
     batch_size=1,
     num_workers=1,
-    pin_memory=True
+    pin_memory=True,
+    shuffle=True,
         )
 def datasetitemn2show(data:dict):
     for key,value in data.items():
@@ -37,7 +38,7 @@ def datasetitemn2show(data:dict):
             print(key, value[0])
         if isinstance(value,np.ndarray) or isinstance(value,torch.Tensor):
             img =toPILImage(value[0])
-            img.save('./testimgs2/{}.jpg'.format(key))
+            img.save('./testimgs/{}.jpg'.format(key))
         print(key,value)
 
 
@@ -65,9 +66,13 @@ def show_img(imgs: np.ndarray, color=False):
 #     show_img(label[0])
 #     show_img(mask[0])
 #     plt.show()
-
+#
 data=b.__iter__().__next__()
-datasetitemn2show(data)
+# datasetitemn2show(data)
+
+gt_numpy = data["gt"].cpu().numpy()
+thresh_map_numpy =data["thresh_map"].cpu().numpy()
+index = 0
 
 # index = 0
 # from tqdm import tqdm

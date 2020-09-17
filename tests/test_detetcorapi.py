@@ -12,11 +12,11 @@ import matplotlib.pyplot as plt
 
 
 set_random_seed(12)
-config_file = "./configs/detection/DB/db_resnet18_deform_border.py"
-
-checkpoint = "./work_dirs/db/db_resnet18_deform_adam/DBDetector_epoch_80.pth"
-# config_file = "./configs/detection/pan/pandetect.py"
-# checkpoint = "./work_dirs/pan/PAN_epoch_22.pth"
+# config_file = "../configs/detection/DB/db_resnet18_deform_border.py"
+#
+# checkpoint = "../work_dirs/db/db_resnet18_deform_adam/DBDetector_epoch_120.pth"
+config_file = "./configs/detection/pan/pandetect.py"
+checkpoint = "./work_dirs/pan/PAN_epoch_22.pth"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = init_detector(config_file,checkpoint,device)
 
@@ -43,24 +43,24 @@ def show_img(imgs: np.ndarray, color=False):
 
 
 
-from tqdm import tqdm
-# img = "./testimgs/img_305.jpg"
-eval_path = "/home/zhou/data/data/receipt/end2end/receipt_2nd_icdr15val/imgs/"
-img_paths = os.listdir(eval_path)
-for img_id in tqdm(img_paths):
-    img_path = os.path.join(eval_path,img_id)
-
-    preds,scores = inference_detector(model,img_path)
-    img = cv2.imread(img_path)
-    img = draw_bbox(img, preds)
-    cv2.imwrite("./testimgs/{}".format(img_id),img)
-# img = "/home/zhou/data/data/receipt/end2end/receipt_2nd_icdr15/ori_imgs/15.jpg"
-# preds,scores  = inference_detector(model,img)
-# img = cv2.imread(img)
-# img = draw_bbox(img,preds)
-# plt.figure()
-# plt.imshow(img)
-# plt.show()
+# from tqdm import tqdm
+# # img = "./testimgs/img_305.jpg"
+# eval_path = "/home/zhou/data/data/receipt/end2end/receipt_2nd_icdr15val/imgs/"
+# img_paths = os.listdir(eval_path)
+# for img_id in tqdm(img_paths):
+#     img_path = os.path.join(eval_path,img_id)
+#
+#     preds,scores = inference_detector(model,img_path)
+#     img = cv2.imread(img_path)
+#     img = draw_bbox(img, preds)
+#     cv2.imwrite("./testimgs/{}".format(img_id),img)
+img = "/home/zhou/data/data/receipt/end2end/receipt_2nd_icdr15/ori_imgs/12.jpg"
+preds,scores  = inference_detector(model,img)
+img = cv2.imread(img)
+img = draw_bbox(img,preds)
+plt.figure()
+plt.imshow(img)
+plt.show()
 
 # cv2.waitKey()
 # show_img(img)
