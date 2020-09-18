@@ -83,8 +83,14 @@ class PanCPPHead(nn.Module):
         kernels = kernels.data.cpu().numpy().astype(np.uint8)
         similarity_vectors = similarity_vectors.cpu().numpy().astype(np.float32)
 
+        # import time
+        # start_time = time.time()
+        # label = _pa_warpper(kernels, similarity_vectors, min_area=self.min_area)
+        # end_time = time.time()
+        # print("pa post_process spend time",end_time-start_time)
 
         label = _pa_warpper(kernels, similarity_vectors, min_area=self.min_area)
+
         label_num = np.max(label) + 1
 
         bboxes = []
@@ -101,7 +107,6 @@ class PanCPPHead(nn.Module):
                 label[ind] = 0
                 continue
             if  self.is_output_polygon:
-                ##BUG eval ploygon
                 raise NotImplementedError
                 binary = np.zeros(label.shape, dtype='uint8')
                 binary[ind] = 1

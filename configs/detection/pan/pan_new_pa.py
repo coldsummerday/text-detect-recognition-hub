@@ -23,6 +23,7 @@ model = dict(
         reduction='mean',
         min_area = 5,
         min_score = 0.85,
+        # is_output_polygon= True,
     )
 )
 
@@ -83,7 +84,7 @@ dist_params = dict(backend='nccl')
 train_hooks = [
     dict(
         type="CheckpointHook",
-        interval=5,## 2个epoch 保存一个结果
+        interval=20,## 2个epoch 保存一个结果
         by_epoch=True,
         priority = 40,
     ),

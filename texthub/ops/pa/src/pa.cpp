@@ -14,6 +14,7 @@
 #include <map>
 #include <algorithm>
 #include <vector>
+#include <exception>
 #include "pybind11.h"
 #include "numpy.h"
 #include "stl.h"
@@ -31,28 +32,35 @@ namespace pa {
     ) {
 
         auto pbuf_label_map = label_map.request();
-
-
-        auto r_cc = text_components.unchecked<2>();
-        auto r_similarity_vector  = similarity_vectors.unchecked<3>();
         auto r_label_map = label_map.mutable_unchecked<2>();
 
-        int h = pbuf_label_map.shape[0];
-        int w = pbuf_label_map.shape[1];
+        int h = label_map.shape()[0];
+        int w = label_map.shape()[1];
 
+        if (pbuf_label_map.ndim != 2 || pbuf_label_map.shape[0]==0 || pbuf_label_map.shape[1]==0)
+            throw std::runtime_error("label map must have a shape of (h>0, w>0)");
+        auto pbuf_simi = similarity_vectors.request();
+        if (pbuf_simi.ndim != 3 || pbuf_simi.shape[0] != 4 || pbuf_simi.shape[1]!=h || pbuf_simi.shape[2]!=w)
+            throw std::runtime_error("similarity_vectors must have a shape of (c>0, h>0, w>0)");
+        auto pbuf_text = text_components.request();
+        if (pbuf_text.ndim != 2 || pbuf_text.shape[0]!=h || pbuf_text.shape[1]!=w)
+            throw std::runtime_error("text_components must have a shape of (h, w) same with label map");
+
+        auto r_cc = text_components.unchecked<2>();
+        auto r_similarity_vector = similarity_vectors.unchecked<3>();
+
+        int i, j, k, l = 0;
         //初始化结果
-        auto res = py::array_t<int32_t>({h,w});
+        auto res = py::array_t<int32_t,py::array::c_style>({h, w});
         auto r_res = res.mutable_unchecked<2>();
 
 
         //array 初始化
-        for(int i=0;i<h;i++){
-            for(int j=0;j<w;j++){
-                r_res(i,j) = 0;
+        for (i = 0; i < h; i++) {
+            for (j = 0; j < w; j++) {
+                r_res(i, j) = 0;
             }
         }
-
-
 
 
         float area_array[label_num] = {0};
@@ -61,24 +69,24 @@ namespace pa {
 
         int p_array[label_num][2] = {0};
 
-        float  sum_simi_array[label_num][4] = {0};
+        float sum_simi_array[label_num][4] = {0};
         float mean_simi_vector[label_num][4] = {0};
 
         float max_rate = 1024;
 
         std::vector<std::pair<int, int>> point_vectors;
-        point_vectors.reserve(w*h);
+        point_vectors.reserve(w * h);
         int area_num = 0;
         for (int label_index_i = 1; label_index_i < label_num; label_index_i++) {
 
             area_num = 0;
-            for (int i = 0; i < h; i++) {
-                for (int j = 0; j < w; j++) {
+            for (i = 0; i < h; i++) {
+                for (j = 0; j < w; j++) {
                     if (r_label_map(i, j) == label_index_i) {
                         point_vectors.push_back(std::make_pair(i, j));
                         area_num += 1;
-                        for(int k=0;k<4;k++){
-                            sum_simi_array[label_index_i][k] += r_similarity_vector(k,i,j);
+                        for (k = 0; k < 4; k++) {
+                            sum_simi_array[label_index_i][k] += r_similarity_vector(k, i, j);
                         }
                     }
                 }
@@ -87,24 +95,25 @@ namespace pa {
             area_array[label_index_i] = area_num;
             if (area_num < min_area) {
                 //某文字核心太小，直接忽略该文字实例
-                for(size_t k=0;k<point_vectors.size();k++){
-                    r_label_map(point_vectors[k].first,point_vectors[k].second) = 0;
+                for (size_t point_index = 0; point_index < point_vectors.size(); point_index++) {
+                    r_label_map(point_vectors[point_index].first, point_vectors[point_index].second) = 0;
                 }
+
                 point_vectors.clear();
                 continue;
 
             }
             //记录第一个点的坐标
-            if(!point_vectors.empty()){
+            if (!point_vectors.empty()) {
 
-                p_array[label_index_i][0] =point_vectors[0].first;
+                p_array[label_index_i][0] = point_vectors[0].first;
                 p_array[label_index_i][1] = point_vectors[0].second;
             }
 
-            for(int k=0;k<4;k++){
+            for (k = 0; k < 4; k++) {
                 //mean_emb[i] = np.mean(emb[:, ind], axis=1)
-                if(!point_vectors.empty()){
-                    mean_simi_vector[label_index_i][k] = sum_simi_array[label_index_i][k]/point_vectors.size();
+                if (!point_vectors.empty()) {
+                    mean_simi_vector[label_index_i][k] = sum_simi_array[label_index_i][k] / point_vectors.size();
                 }
 
             }
@@ -114,8 +123,10 @@ namespace pa {
                 if (area_array[label_index_j] < min_area) {
                     continue;
                 }
+
                 //如果i，j两个实例的第一个点坐标不同属于文字像素的话，跳过
-                if(r_cc(p_array[label_index_i][0],p_array[label_index_i][1])!=r_cc(p_array[label_index_j][0],p_array[label_index_j][1])){
+                if (r_cc(p_array[label_index_i][0], p_array[label_index_i][1]) !=
+                    r_cc(p_array[label_index_j][0], p_array[label_index_j][1])) {
                     continue;
                 }
 
@@ -125,7 +136,7 @@ namespace pa {
 
                 if (rate < (1.0 / max_rate) || rate > max_rate) {
                     flag_array[label_index_i] = true;
-                    flag_array[label_index_j]=true;
+                    flag_array[label_index_j] = true;
 
                 }
             }
@@ -133,18 +144,12 @@ namespace pa {
         }
 
 
-
-
-
         std::queue<std::pair<int, int>> que, next_quq;
 
-        //四个方向
-        int dx[4] = {-1, 1, 0, 0};
-        int dy[4] = {0, 0, -1, 1};
-        int tempx, tempy = 0;
+
         //points = np.array(np.where(label > 0)).transpose((1, 0);
-        for (int i = 0; i < h; i++) {
-            for (int j = 0; j < w; j++) {
+        for (i = 0; i < h; i++) {
+            for (j = 0; j < w; j++) {
                 if (r_label_map(i, j) > 0) {
                     que.push(std::make_pair(i, j));
                     r_res(i, j) = r_label_map(i, j);
@@ -152,12 +157,16 @@ namespace pa {
             }
         }
 
+        //四个方向
+        int dx[4] = {-1, 1, 0, 0};
+        int dy[4] = {0, 0, -1, 1};
+        int tempx, tempy = 0;
         int cur_label = 0;
-
 
         float norm_sum = 0;
         float norm = 0;
 //        while (!que.empty() || !next_quq.empty()) {
+
         while (!que.empty()) {
             auto cur = que.front();
             que.pop();
@@ -165,37 +174,48 @@ namespace pa {
 //            int x = cur.second;
 
             cur_label = r_res(cur.first, cur.second);
-            for (int k = 0; k < 4; k++) {
-                tempx = cur.second + dx[k];
-                tempy = cur.first + dy[k];
-                if (tempx < 0 || tempx > w || tempy < 0 || tempy > h) {
-                    continue;
-                }
-                if (r_cc(tempy, tempx) == 0 || r_res(tempy, tempx) > 0) {
-                    continue;
-                }
-                if (flag_array[cur_label] == 1) {
-                    /*
-                     * if flag[cur_label] == 1 and np.linalg.norm(emb[:, tmpx, tmpy] - mean_emb[cur_label]) > 3:
-                continue
-
-                     np.linalg.norm计算二范式
-
-                     */
-                    //如果相似向量的二范式距离超过3，则认为不是中心的聚类
-                    norm_sum = 0;
-                    norm = 0;
-                    for (int l = 0; l < 4; l++) {
-                        norm_sum += pow(r_similarity_vector(l, tempy, tempx) - mean_simi_vector[cur_label][l],2);
-                    }
-                    norm = sqrt(norm_sum);
-                    if (norm > 3) {
+            try {
+                for (k = 0; k < 4; k++) {
+                    tempx = cur.second + dx[k];
+                    tempy = cur.first + dy[k];
+                    if (tempx < 0 || tempx > w || tempy < 0 || tempy > h) {
                         continue;
                     }
-                }
+                    if (r_cc(tempy, tempx) == 0 || r_res(tempy, tempx) > 0) {
+                        continue;
+                    }
+                    if (!flag_array[cur_label]) {}
+                    else {
+                        /*
+                         * if flag[cur_label] == 1 and np.linalg.norm(emb[:, tmpx, tmpy] - mean_emb[cur_label]) > 3:
+                    continue
 
-                que.push(std::make_pair(tempy, tempx));
-                r_res(tempy, tempx) = cur_label;
+                         np.linalg.norm计算二范式
+
+                         */
+                        //如果相似向量的二范式距离超过3，则认为不是中心的聚类
+
+                        norm_sum = 0.0;
+                        norm = 0.0;
+                        for (l = 0; l < 4; l++) {
+                            norm_sum += pow(r_similarity_vector(l, tempy, tempx) - mean_simi_vector[cur_label][l], 2);
+                        }
+                        norm = sqrt(norm_sum);
+                        if (!isnormal(norm) || (norm > 3)) {
+                            continue;
+                        }
+
+                    }
+
+                    que.push(std::make_pair(tempy, tempx));
+                    r_res(tempy, tempx) = cur_label;
+                }
+            } catch (std::exception &e) {
+                std::cout << "Standard exception: " << e.what() << std::endl;
+                continue;
+            } catch (std::runtime_error &err) {
+                std::cout << "runtime: " << err.what() << std::endl;
+                continue;
             }
 
         }
@@ -205,8 +225,8 @@ namespace pa {
     }
 }
 
-PYBIND11_MODULE(pa_cpp,m){
-    m.def("pa_cpp_f",&pa::pa_cpp_f," re-implementation pa algorithm(cpp)",
-          py::arg("similarity_vectors"),py::arg("label_map"),py::arg("text_components"),
-          py::arg("label_num"),py::arg("min_area")=1.0);
+PYBIND11_MODULE(pa_cpp, m) {
+    m.def("pa_cpp_f", &pa::pa_cpp_f, " re-implementation pa algorithm(cpp)",
+          py::arg("similarity_vectors"), py::arg("label_map"), py::arg("text_components"),
+          py::arg("label_num"), py::arg("min_area") = 1.0);
 }

@@ -6,6 +6,8 @@ import torch
 from torch.nn.parallel import DataParallel,DistributedDataParallel
 import Polygon as plg
 from ....core.evaluation import eval_poly_detect,eval_text
+from ....utils.dist_utils import get_dist_info
+
 
 class DetEvalHook(BaseHook):
     def __init__(self,dataset,
@@ -26,14 +28,16 @@ class DetEvalHook(BaseHook):
         )
         self.by_epoch = by_epoch
         self.interval = interval
+        # self.rank,self.world_size = get_dist_info()
+        # print(self.rank)
 
     def after_train_epoch(self, runner):
-        if not self.by_epoch or not self.every_n_epochs(runner, self.interval):
+        if  not self.by_epoch or not self.every_n_epochs(runner, self.interval):
             return
         else:
             self.eval(runner)
     def after_train_iter(self, runner):
-        if self.by_epoch or not self.every_n_iters(runner,self.interval):
+        if  self.by_epoch or not self.every_n_iters(runner,self.interval):
             return
         else:
             self.eval(runner)
