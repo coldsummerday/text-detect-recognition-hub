@@ -20,9 +20,14 @@ import streamlit as st
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 BASEDIR = os.path.abspath(os.path.dirname(__file__))
+#
+# det_config_file = os.path.join(BASEDIR,"../configs/detection/DB/db_resnet18_deform_border.py")
+# det_checkpoint = os.path.join(BASEDIR,"../work_dirs/db/db_resnet18_deform_border/DBDetector_epoch_290.pth")
 
-det_config_file = os.path.join(BASEDIR,"../configs/detection/DB/db_resnet18_deform_border.py")
-det_checkpoint = os.path.join(BASEDIR,"../work_dirs/db/db_resnet18_deform_border/DBDetector_epoch_290.pth")
+
+det_config_file = os.path.join(BASEDIR,"../configs/detection/pan/pan_resnet18.py")
+det_checkpoint = os.path.join(BASEDIR,"../work_dirs/pan_cpp/PAN_epoch_120.pth")
+
 
 
 rec_config_file = os.path.join(BASEDIR,"../configs/recognition/fourstagerecogition/tps_resnet_lstm_attention_chi_iter.py")
@@ -75,7 +80,7 @@ def text_recognition(src):
     for bbox in batch_pred_bbox:
         #应该检测边缘有没有黑色像素再决定要不要添加多边形区域轮廓
         # #是否增大检测面积
-        bbox = addPolygonEdge(bbox,distance=3)
+        # bbox = addPolygonEdge(bbox,distance=3)
         if len(bbox)==0:
             continue
         croped_img = crop_by_poly(img=cv2_img_array, points=bbox)

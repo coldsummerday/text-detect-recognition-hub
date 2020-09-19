@@ -1,5 +1,4 @@
-# dataset settings
-batch_size = 4
+batch_size = 8
 model = dict(
     type="PAN",
     pretrained=None,
@@ -15,13 +14,16 @@ model = dict(
         fpem_repeat=4,
     ),
     bbox_head=dict(
-        type="PanHead",
+        type="PanCPPHead",
         alpha=0.5,
         beta=0.25,
         delta_agg=0.5,
         delta_dis=3,
         ohem_ratio=3,
-        reduction='mean'
+        reduction='mean',
+        min_area = 5,
+        min_score = 0.85,
+        # is_output_polygon= True,
     )
 )
 
@@ -53,7 +55,6 @@ val_pipeline = [
     dict(type="Gt2SameDim",max_label_num = 250),
     dict(type='Collect', keys=['img',"gt_polys"]),
 ]
-
 data = dict(
     batch_size=batch_size,
     train=dict(
@@ -75,18 +76,17 @@ data = dict(
         root=val_data_root,
         pipeline = test_pipeline,
         line_flag=False,  ##icdar15 format
-
         )
 )
 # optimizer
-optimizer = dict(type='Adam', lr=1e-4, weight_decay=5e-4)
+optimizer = dict(type='Adam', lr=0.001, amsgrad=True, weight_decay=0)
 dist_params = dict(backend='nccl')
 train_hooks = [
     dict(
         type="CheckpointHook",
-        interval=5,## 2个epoch 保存一个结果
+        interval=20,## 2个epoch 保存一个结果
         by_epoch=True,
-        priority = 80,
+        priority = 40,
     ),
     dict(
         type="SimpleTextLoggerHook",
@@ -99,6 +99,16 @@ train_hooks = [
         priority = 60,
     ),
     dict(
+        type="WarmupAndDecayLrUpdateHook",
+        base_lr=1e-4,
+        warmup_lr=1e-5,
+        warmup_num=5,
+        lr_gamma=0.9,
+        by_epoch=True,
+        min_lr=1e-7,
+        priority=40,
+    ),
+    dict(
         type="DetEvalHook",
         dataset=dict(
         type=dataset_type,
@@ -108,7 +118,7 @@ train_hooks = [
         ),
         batch_size=batch_size,
         by_epoch=True,
-        interval=5,
+        interval=20,
         priority=80,
     )
     ##eval hooks
@@ -116,11 +126,11 @@ train_hooks = [
 ]
 
 # runtime settings
-seed = 10
+seed = 1211
 by_epoch = True
-max_number = 150
+max_number = 120
 # by_epoch = False
 # max_number = 30000
 log_level = 'INFO'
-work_dir = './work_dirs/pan_resnet18'
+work_dir = './work_dirs/pan_restnet18/'
 resume_from = None

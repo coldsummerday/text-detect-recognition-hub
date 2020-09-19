@@ -39,3 +39,18 @@ approx = cv2.approxPolyDP(contour, epsilon, True)
 * 修改pan 的get_result
 bug：pan 输出多边形的时候，eval时候用ploygon3 会出现segmentation fault，所以暂时先实现输出矩形框
 
+2020/09/19 
+* fix 了pan后处理的texthub.ops.pa.src/pa.cpp的数组下标 tempy,tempx越界问题
+pan后处理输出矩形框、多边形 segmentation fault问题已经解决
+* 合并了setup.py中编译cpp_ext的时候 include dir的问题，外部统一headers文件如pybind11放在texthub.ops.include中
+避免多个拓展需要多次个include/pybind11文件
+* 现pan,db已按照官方代码实现了一遍，暂时还没测试此版本代码在公共数据集如icdar上的表现（在小票数据已经进行测试
+* pan ffem代码中上采样增加默认设置align_corners=False
+原来：F.interpolate(x, size=y.size()[2:], mode='bilinear') + y
+现在：F.interpolate(x, size=y.size()[2:], mode='bilinear',align_corners=False) + y
+修改包括了：
+c5 = F.interpolate(c5_ffm, c2_ffm.size()[-2:], mode='bilinear',align_corners=False)
+c4 = F.interpolate(c4_ffm, c2_ffm.size()[-2:], mode='bilinear',align_corners=False)
+c3 = F.interpolate(c3_ffm, c2_ffm.size()[-2:], mode='bilinear',align_corners=False)
+
+

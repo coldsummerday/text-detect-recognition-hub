@@ -37,7 +37,7 @@ def make_cpp_ext(name:str,module:str,sources:list,include_dirs:list,library_dirs
     return CppExtension(
         name='{}.{}'.format(module, name),
         sources=[os.path.join(*module.split('.'), p) for p in sources],
-        include_dirs = [os.path.join(BASE_DIR,*module.split("."),p) for p in include_dirs],
+        include_dirs = [os.path.join(BASE_DIR,"texthub/ops",p) for p in include_dirs],
         ##extra_link_args =sysconfig.get_config_vars('LDFLAGS'),
         **kwargs
     )
@@ -72,15 +72,6 @@ if __name__ == '__main__':
         name='texthub',
         package_data={'texthub.ops': ['*/*.so']},
         ext_modules=[
-            make_cpp_ext(
-                name="pan_cpp",
-                module="texthub.ops.pan",
-                sources=["src/pse.cpp"],
-                include_dirs=['include/pybind11'],
-                extra_compile_args=extra_compile_args,
-                language='c++11',
-
-            ),
             make_cpp_ext(
                 name="pse_cpp",
                 module="texthub.ops.pse",

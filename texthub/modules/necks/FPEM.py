@@ -65,9 +65,10 @@ class FPEM_FFM(nn.Module):
                 c5_ffm += c5
 
         # FFM
-        c5 = F.interpolate(c5_ffm, c2_ffm.size()[-2:], mode='bilinear')
-        c4 = F.interpolate(c4_ffm, c2_ffm.size()[-2:], mode='bilinear')
-        c3 = F.interpolate(c3_ffm, c2_ffm.size()[-2:], mode='bilinear')
+        c5 = F.interpolate(c5_ffm, c2_ffm.size()[-2:], mode='bilinear',align_corners=False)
+        c4 = F.interpolate(c4_ffm, c2_ffm.size()[-2:], mode='bilinear',align_corners=False)
+        c3 = F.interpolate(c3_ffm, c2_ffm.size()[-2:], mode='bilinear',align_corners=False)
+
         Fy = torch.cat([c2_ffm, c3, c4, c5], dim=1)
         y = self.out_conv(Fy)
         return y
@@ -104,7 +105,9 @@ class FPEM(nn.Module):
         return c2, c3, c4, c5
 
     def _upsample_add(self, x, y):
-        return F.interpolate(x, size=y.size()[2:], mode='bilinear') + y
+        # _, _, H, W = y.size()
+        # return F.upsample(x, size=(H, W), mode='bilinear') + y
+        return F.interpolate(x, size=y.size()[2:], mode='bilinear',align_corners=False) + y
 
 
 class SeparableConv2d(nn.Module):
