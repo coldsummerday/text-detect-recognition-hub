@@ -30,10 +30,9 @@ def conver(lmdb_path,img_path,gt_path,line_flag=True):
     """
     image_ids = os.listdir(img_path)
     image_ids = [os.path.splitext(imgid)[0] for imgid in image_ids]
-
     # check if gt exist
     exist_imgs = []
-    gt_path_fmt = os.path.join(gt_path,"{}.txt")
+    gt_path_fmt = os.path.join(gt_path,"gt_{}.txt")
     for imgid in image_ids:
         if os.path.exists(gt_path_fmt.format(imgid)):
             exist_imgs.append(imgid)
@@ -48,14 +47,14 @@ def conver(lmdb_path,img_path,gt_path,line_flag=True):
         data_id = os.path.join(img_path,"{}.jpg".format(image_id))
         data_id = str(data_id.encode('utf-8').decode('utf-8'))
         #打开gt,依次裁剪图片
-        with open(os.path.join(gt_path,"{}.txt".format(image_id))) as file_handler:
+        with open(os.path.join(gt_path,"gt_{}.txt".format(image_id))) as file_handler:
             lines  = file_handler.readlines()
         ori_img = cv2.imread(data_id)
         for index,gt_line in  enumerate(lines):
             gt_line= gt_line.rstrip()
             line_params = gt_line.strip().strip('\ufeff').strip('\xef\xbb\xbf').split(',')
             text_flag,text_label = _get_lable(line_params,line_flag=line_flag)
-            if not text_flag or  text_label=="###":
+            if not text_flag or  text_label=="###" or  text_label=="nan":
                 continue
             try:
                 cropimg = CropImg(ori_img,line_params[:8])
@@ -104,8 +103,8 @@ def Ndarray2Bytes(img:np.array):
 
 def _get_lable(label_line_params:list,line_flag=True):
     if line_flag:
-        text_tag = label_line_params[8]
-        text_label = label_line_params[9]
+        text_tag = label_line_params[8:]
+        text_label = label_line_params[9:]
         #去除引号
         text_label = text_label[1:-1]
         if text_tag=='1':
@@ -113,12 +112,12 @@ def _get_lable(label_line_params:list,line_flag=True):
         else:
             text_tag = True
     else:
-        text_label = label_line_params[8]
-        if text_label=="*" or text_label=='###':
+        text_label = label_line_params[8:]
+        if text_label=="*" or text_label=='###' or text_label=="nan":
             text_tag = False
         else:
             text_tag = True
-    return text_tag,text_label
+    return text_tag,"".join(text_label)
 
 
 def CropImg(oriimg:np.array,polygon_list:[str],edge =1):

@@ -81,6 +81,7 @@ class BaseTrainner(object):
                 loss = torch.mean(loss)
                 self.optimizer.zero_grad()
                 loss.backward()
+                self.call_hook('after_backward')
                 self.optimizer.step()
 
                 ##保存到_logbuffer中，等待输出

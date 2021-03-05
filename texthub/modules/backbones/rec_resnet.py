@@ -22,9 +22,11 @@ class AsterResNet(nn.Module):
             self.ConvNet = ResNet(input_channel, output_channel, BasicBlock, [1, 2, 5, 3],norm_layer=gnnorm2d)
         else:
             self.ConvNet = ResNet(input_channel, output_channel, BasicBlock, [1, 2, 5, 3], norm_layer=None)
-
+        self.TextAttentionModule = TextAttentionModule(output_channel, output_channel)
     def forward(self, input):
-        return self.ConvNet(input)
+        output = self.ConvNet(input)
+        return self.TextAttentionModule(output)
+
 
     def init_weights(self,pretrained=None):
         if pretrained is None:
@@ -41,6 +43,17 @@ class AsterResNet(nn.Module):
             pass
         else:
             raise TypeError('pretrained must be a str or None')
+
+class TextAttentionModule(nn.Module):
+    def __init__(self, input_channel, output_channel):
+        super(TextAttentionModule, self).__init__()
+        self.conv31 = nn.Conv1d(input_channel, output_channel, kernel_size=(1,3), stride=1, padding=(0,1), bias=False)
+        self.sigmoid = nn.Sigmoid()
+    def forward(self, features):
+        x = self.conv31(features)
+        x = self.sigmoid(x)
+        x = x*features
+        return x
 
 
 

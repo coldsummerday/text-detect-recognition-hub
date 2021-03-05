@@ -10,8 +10,9 @@ from texthub.datasets import build_dataset
 import  torch
 from PIL import Image
 from torchvision import transforms
-# config_file = "./configs/recognition/fourstagerecogition/tps_resnet_lstm_attention_chi_iter_maskresize.py"
-config_file = "../configs/detection/DB/db_resnet18_deform.py"
+# config_file = "./configs/recoginition/attention/tps_resnet_lstm_attention_chi_iter_maskresize.py"
+# config_file = "./configs/receipt/recognition/plugnet.py"
+config_file = "./configs/receipt/recognition/fourstagerecogition/attention_hr_hierachicaldataset.py"
 cfg = Config.fromfile(config_file)
 ##
 
@@ -21,25 +22,48 @@ def toPILImage(img_tensor:torch.Tensor)->Image:
     return image
 
 
-dataset = build_dataset(cfg.data.train)
+dataset = build_dataset(cfg.data.val)
 import torch
 b=torch.utils.data.DataLoader(
     dataset,
-    batch_size=1,
-    num_workers=1,
+    batch_size=256,
+    num_workers=4,
     pin_memory=True,
     shuffle=True,
         )
-def datasetitemn2show(data:dict):
+
+
+def datasetitemn2show(index:int,data:dict):
     for key,value in data.items():
-        if type(value[0]) != str:
-            print(key, value[0], value[0].shape)
-        else:
-            print(key, value[0])
+        # if type(value[0]) != str:
+        #     print(key, value[0], value[0].shape)
+        # else:
+        #     print(key, value[0])
         if isinstance(value,np.ndarray) or isinstance(value,torch.Tensor):
-            img =toPILImage(value[0])
-            img.save('./testimgs/{}.jpg'.format(key))
-        print(key,value)
+            try:
+                img =toPILImage(value[0])
+                img.save('./testimgs/{}_{}.jpg'.format(key,index))
+            except:
+                pass
+
+
+def numpydatasetitemn2show(index:int,data:dict):
+    img_np = data['img'][0].cpu().numpy()
+    # img_np=img_np.transpose(1, 2, 0)
+    cv2.imwrite('./testimgs/{}_{}.jpg'.format("img",index),img_np)
+    print(img_np.shape)
+    # for key,value in data.items():
+    #     if type(value[0]) != str:
+    #         print(key, value[0], value[0].shape)
+    #     else:
+    #         print(key, value[0])
+    #     if isinstance(value,np.ndarray) or isinstance(value,torch.Tensor):
+    #         try:
+    #             img =toPILImage(value[0])
+    #             img.save('./testimgs/{}_{}.jpg'.format(key,index))
+    #         except:
+    #             pass
+    #     print(key,value)
 
 
 
@@ -67,28 +91,13 @@ def show_img(imgs: np.ndarray, color=False):
 #     show_img(mask[0])
 #     plt.show()
 #
-data=b.__iter__().__next__()
+
+for i,data in enumerate(b):
+    print(i)
+# data=b.__iter__().__next__()
+# # datasetitemn2show(data)
 # datasetitemn2show(data)
 
-gt_numpy = data["gt"].cpu().numpy()
-thresh_map_numpy =data["thresh_map"].cpu().numpy()
-index = 0
 
-# index = 0
-# from tqdm import tqdm
-# for data in tqdm(b):
-#     img_tensors = data["img"]
-    #尝试是否能读取完
-#     for i in img_tensors:
-#         img = toPILImage(i)
-#         img.save('./testimgs/mask_{}.jpg'.format(index))
-#         index += 1
-#     if index==20:
-#         break
-# data=b.__iter__().__next__()
 
-# def main():
-#     config_file = "../configs/testdatasetconfig.py"
-#     cfg = Config.fromfile(config_file)
-#     dataset = build_dataset(cfg.data.train)
 

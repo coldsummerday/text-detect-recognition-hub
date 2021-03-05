@@ -68,6 +68,49 @@ class WarmupAndDecayLrUpdateHook(BaseLrUpdateHook):
         self._set_lr(runner, lr)
 
 
+class MultiStepLrUpdateHook(BaseLrUpdateHook):
+    def __init__(self,
+                 iters_list:[int],
+                 base_lr:float,
+                 lr_gamma:float,
+                 by_epoch=True,
+                 iter_interval = 200,
+              ):
+        self.base_lr = base_lr
+        self.iters_list = iters_list
+        self.lr_gamma = lr_gamma
+        self.by_epoch = by_epoch
+        self.interval = iter_interval
+
+
+
+    def before_train_epoch(self, runner):
+        if self.by_epoch:
+            progress = runner.epoch
+            exp = len(self.iters_list)
+            for i, s in enumerate(self.iters_list):
+                if progress < s:
+                    exp = i
+                    break
+            lr = self.base_lr * self.lr_gamma ** exp
+            self._set_lr(runner, lr)
+
+
+
+
+    def before_train_iter(self, runner):
+        if self.by_epoch or not self.every_n_iters(runner,self.interval):
+            return
+        progress = runner.iter
+        exp = len(self.iters_list)
+        for i, s in enumerate(self.iters_list):
+            if progress < s:
+                exp = i
+                break
+        lr = self.base_lr * self.lr_gamma ** exp
+        self._set_lr(runner, lr)
+
+
 
 
 

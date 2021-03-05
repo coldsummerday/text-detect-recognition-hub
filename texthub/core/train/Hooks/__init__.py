@@ -11,9 +11,10 @@ from .textloghook import TextLoggerHook
 from .optimizer import OptimizerHook,DistOptimizerHook
 from .evalhooks import RecoEvalHook,DistRecoEvalHook,DetEvalHook
 from .simpletextloghook import SimpleTextLoggerHook
-from .lrhooks import WarmupAndDecayLrUpdateHook
+from .lrhooks import WarmupAndDecayLrUpdateHook,MultiStepLrUpdateHook
+from .ctcoptimizer import RNNClipGradHook
 __all__ = [
     'BaseHook', 'CheckpointHook', 'LrUpdaterHook', 'OptimizerHook',
     'IterTimerHook', 'LoggerHook',
-    'TextLoggerHook',"DistRecoEvalHook","DistOptimizerHook","SimpleTextLoggerHook","WarmupAndDecayLrUpdateHook","DetEvalHook"
+    'TextLoggerHook',"DistRecoEvalHook","DistOptimizerHook","SimpleTextLoggerHook","WarmupAndDecayLrUpdateHook","DetEvalHook","MultiStepLrUpdateHook","RNNClipGradHook"
 ]

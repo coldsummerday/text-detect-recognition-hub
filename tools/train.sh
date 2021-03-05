@@ -1,1 +1,1 @@
-python3 -m torch.distributed.launch  --nproc_per_node=2  tools/train_recognizer.py  configs/fourstagerecogition/tps_vgg_lstm_attention.py --gpus 2
+python3 -m torch.distributed.launch  --nproc_per_node=2  tools/train.py  configs/fourstagerecogition/tps_vgg_lstm_attention.py --gpus 2

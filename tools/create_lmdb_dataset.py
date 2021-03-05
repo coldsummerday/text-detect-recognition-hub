@@ -27,6 +27,7 @@ def writeCache(env, cache):
 
 
 
+
 def createDataset(inputPath, gtFile, outputPath, checkValid=True):
     """
     Create LMDB dataset for training and evaluation.

@@ -151,30 +151,35 @@ def inference_recognizer(model,img:str):
     test_pipeline = cfg.test_pipeline
     test_pipeline = Compose(test_pipeline)
 
-    if isinstance(img,str):
-        img = Image.open(img)
-    elif isinstance(img,np.ndarray):
-        ##原则上不需要装opencv库,但是如果传入的是opencv的对象,则需要进行转化
-        import cv2
-        img = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-    elif isinstance(img,Image):
+    if isinstance(img, str):
+        img = cv2.imread(img)
+    elif isinstance(img, np.ndarray):
         img = img
+    elif isinstance(img, Image):
+        # TODO:将PIL改为CV2
+        pass
     else:
         raise TypeError('img must be a PIL.Image or str or np.ndarray, '
                         'but got {}'.format(type(img)))
-    #rgb2gray
-    img = img.convert("L")
 
     # prepare data
     data = dict(img=img)
     data = test_pipeline(data)
-    img_tensor = data['img'].unsqueeze(0).to(device)
-    data["img"] = img_tensor
+    data = unsqueeze_data(data,device=device)
+    # img_tensor = data['img'].unsqueeze(0).to(device)
+    # data["img"] = img_tensor
     # forward the model
     with torch.no_grad():
         preds = model(data,return_loss=False)
-    preds = model.postprocess(preds)
-    return preds[0]
+    preds,scores = model.postprocess(preds)
+    return preds
+
+def unsqueeze_data(data:dict,device):
+    for key,value in data.items():
+        if key.find("img")!=-1:
+            data[key] = value.unsqueeze(0).to(device)
+    return data
+
 
 
 

@@ -6,7 +6,7 @@ from .labelconverter import AttnLabelConverter
 
 @HEADS.register_module
 class AttentionHead(nn.Module):
-    def __init__(self, input_size, hidden_size,charsets):
+    def __init__(self, input_size, hidden_size,charsets,batch_max_length=25,use_focal_loss=False,alpha=0.5, gamma=2.0):
         super(AttentionHead, self).__init__()
         self.converter = AttnLabelConverter(charsets)
         """
@@ -21,8 +21,11 @@ class AttentionHead(nn.Module):
         self.hidden_size = hidden_size
         self.num_classes = num_classes
         self.generator = nn.Linear(hidden_size, num_classes)
-        self.loss_func = torch.nn.CrossEntropyLoss(ignore_index=0) # ignore [GO] token = ignore index 0
-
+        if not use_focal_loss:
+            self.loss_func = torch.nn.CrossEntropyLoss(ignore_index=0) # ignore [GO] token = ignore index 0
+        else:
+            self.loss_func = FocalLoss(alpha, gamma)
+        self.batch_max_length = batch_max_length
     def forward(self,data:dict,return_loss:bool,**kwargs):
         if return_loss:
             return self.forward_train(data)
@@ -30,22 +33,20 @@ class AttentionHead(nn.Module):
             return self.forward_test(data)
 
     def postprocess(self,data):
-        return data
+        scores =[]
+        return data,scores
 
 
-    def loss(self,probs,target):
-        loss_recog = self.loss_func(probs.view(-1, probs.shape[-1]), target.contiguous().view(-1))
-        return dict(loss_recog=loss_recog)
-
-    def forward_train(self,data:dict,batch_max_length=25,**kwargs):
+    def forward_train(self,data:dict,**kwargs):
         img_tensor = data.get("img")
+        # print(img_tensor.shape)
         device = img_tensor.device
         text = data["label"]
         target = text[:,1:] # without [GO] Symbol
         text = text[:,:-1]# align with Attention.forward
 
         batch_size = img_tensor.size(0)
-        num_steps = batch_max_length + 1  # +1 for [s] at end of sentence.
+        num_steps = self.batch_max_length + 1  # +1 for [s] at end of sentence.
 
         output_hiddens = torch.FloatTensor(batch_size, num_steps, self.hidden_size).fill_(0).to(device)
         hidden = (torch.FloatTensor(batch_size, self.hidden_size).fill_(0).to(device),
@@ -59,21 +60,22 @@ class AttentionHead(nn.Module):
             hidden, alpha = self.attention_cell(hidden, img_tensor, char_onehots)
             output_hiddens[:, i, :] = hidden[0]  # LSTM hidden index (0: hidden, 1: Cell)
         probs = self.generator(output_hiddens)
-        return probs,target
 
-    def forward_test(self,data:dict,batch_max_length=25,**kwargs):
+        loss_recog = self.loss_func(probs.view(-1, probs.shape[-1]), target.contiguous().view(-1))
+        return dict(loss_recog=loss_recog, loss=loss_recog)
+
+    def forward_test(self,data:dict,**kwargs):
 
         """
         在DataParallel 中,返回值有可能是map对象,需要单独处理
 
-        :param batch_max_length:
         :param kwargs:
         :return:
         """
         img_tensor = data.get("img")
         batch_size = img_tensor.size(0)
         device = img_tensor.device
-        num_steps = batch_max_length + 1  # +1 for [s] at end of sentence.
+        num_steps = self.batch_max_length + 1  # +1 for [s] at end of sentence.
 
         hidden = (torch.FloatTensor(batch_size, self.hidden_size).fill_(0).to(device),
                   torch.FloatTensor(batch_size, self.hidden_size).fill_(0).to(device))
@@ -89,10 +91,10 @@ class AttentionHead(nn.Module):
             _, next_input = probs_step.max(1)
             targets = next_input
 
-        preds = probs[:, :batch_max_length, :]
+        preds = probs[:, :self.batch_max_length, :]
         # select max probabilty (greedy decoding) then decode index to character
         _, preds_index = preds.max(2)
-        preds_str = self.converter.decode(preds_index, [batch_max_length]*batch_size)
+        preds_str = self.converter.decode(preds_index, [self.batch_max_length]*batch_size)
         return preds_str
 
     def _char_to_onehot(self, input_char,device, onehot_dim=38):
@@ -168,3 +170,17 @@ class AttentionCell(nn.Module):
         concat_context = torch.cat([context, char_onehots], 1)  # batch_size x (num_channel + num_embedding)
         cur_hidden = self.rnn(concat_context, prev_hidden)
         return cur_hidden, alpha
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=0.5, gamma=2.0):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.crossEntropyLoss = torch.nn.CrossEntropyLoss(ignore_index=0)
+
+    def forward(self, input, target):
+        loss_crossentropyloss = self.crossEntropyLoss(input,target)
+        probability = torch.exp(-loss_crossentropyloss)
+        focal_loss = torch.mul(torch.mul(self.alpha, torch.pow((1 - probability), self.gamma)), loss_crossentropyloss)
+        return focal_loss

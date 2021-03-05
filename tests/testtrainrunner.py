@@ -1,22 +1,16 @@
-from texthub.core.train.runner import  Runner
-from texthub.modules import build_recognizer
-from texthub.utils import Config
+from texthub.modules.backbones import ResNet34Lstm_Plug
+net = ResNet34Lstm_Plug()
+net.init_weights()
+
 import torch
-from texthub.utils.dist_utils import init_dist
+x = torch.randn(3, 3, 32, 100)
+y,z = net(x)
 
-from texthub.datasets import build_dataset
+from texthub.modules.backbones.det_resnet import resnet18,resnet34
 
+import torch
+from texthub.modules.backbones.rec_encoders import RCAN
+x = torch.randn(3, 512, 8, 25)
+net = RCAN()
+y = net(x)
 
-config_file = "./configs/testdatasetconfig.py"
-cfg = Config.fromfile(config_file)
-init_dist("")
-train_dataset = build_dataset(cfg.data.train)
-
-model = build_recognizer(cfg.model)
-
-train_data_loader = torch.utils.data.DataLoader(
-                train_dataset, batch_size=cfg.data.imgs_per_gpu,
-                num_workers=cfg.data.workers_per_gpu,
-                pin_memory=True)
-
-data = train_data_loader.__iter__().__next__()

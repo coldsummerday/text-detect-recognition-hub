@@ -4,6 +4,8 @@ text-detect-recognition is an open source project  text detection  and text reco
  
 It work's on **pytorch  1.3-1.5**
 
+ops:nativectc requires pytorch 1.7
+
 
 features:
 * split  module  design 

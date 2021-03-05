@@ -14,6 +14,7 @@ def eval_text(preds:[str],gts:[str])->dict:
             n_correct += 1
         else:
             n_incorrect +=1
+
         if len(gt) == 0 or len(pred) == 0:
             norm_ED += 0
         elif len(gt) > len(pred):
@@ -21,10 +22,11 @@ def eval_text(preds:[str],gts:[str])->dict:
         else:
             norm_ED += 1 - edit_distance(pred, gt) / len(pred)
 
-    accuracy = n_correct / float(length) * 100
+
+    accuracy = n_correct / float(length)
     norm_ED = norm_ED / float(length)  # ICDAR2019 Normalized Edit Distance
 
-    recall = n_correct / float(length) * 100
+    recall = n_correct / float(length)
     f1 = 0 if (accuracy + recall) == 0 else (2.0 * accuracy * recall) / (accuracy + recall)
     return dict(
         acc=accuracy,

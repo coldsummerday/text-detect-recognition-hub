@@ -15,57 +15,57 @@ import numbers
 import pyclipper
 import  random
 import Polygon as plg
-@PIPELINES.register_module
-class ResizeRecognitionImage(object):
-    """
-    文本识别的resize
-    img_scale:(h,w)
-    保持h不变的情况下,根据比例resizetup
-    """
-    def __init__(self,img_scale=None):
-        assert  isinstance(img_scale,tuple) and len(img_scale)==2,"img_scale must be tuple(h,w)"
-        self.default_h,self.default_w = img_scale
+# @PIPELINES.register_module
+# class ResizeRecognitionImage(object):
+#     """
+#     文本识别的resize
+#     img_scale:(h,w)
+#     保持h不变的情况下,根据比例resizetup
+#     """
+#     def __init__(self,img_scale=None):
+#         assert  isinstance(img_scale,tuple) and len(img_scale)==2,"img_scale must be tuple(h,w)"
+#         self.default_h,self.default_w = img_scale
+#
+#     def __call__(self, data:{}):
+#         # img
+#         img = data.get("img")
+#
+#         w, h = img.size
+#         ratio = w / float(h)
+#         if math.ceil(self.default_h * ratio) > self.default_w:
+#             resized_w = self.default_w
+#         else:
+#             resized_w = math.ceil(self.default_h * ratio)
+#         resized_image = img.resize((resized_w, self.default_h), Image.BICUBIC)
+#         data["img"] = resized_image
+#         return data
 
-    def __call__(self, data:{}):
-        # img
-        img = data.get("img")
 
-        w, h = img.size
-        ratio = w / float(h)
-        if math.ceil(self.default_h * ratio) > self.default_w:
-            resized_w = self.default_w
-        else:
-            resized_w = math.ceil(self.default_h * ratio)
-        resized_image = img.resize((resized_w, self.default_h), Image.BICUBIC)
-        data["img"] = resized_image
-        return data
-
-
-@PIPELINES.register_module
-class NormalizePADToTensor(object):
-    """
-    max_size:tuple(c,h,w)
-    """
-    def __init__(self, max_size, PAD_type='right'):
-        assert  isinstance(max_size,tuple) and len(max_size)==3,"max_size must be tuple(c,h,w)"
-        self.toTensor = transforms.ToTensor()
-        self.max_size = max_size
-        self.max_width_half = math.floor(max_size[2] / 2)
-        self.PAD_type = PAD_type
-
-    def __call__(self, data:{}):
-        img = data.get('img')
-        img = self.toTensor(img)
-        ## Normalize 导致小票文字区域出现黑白断点，所以不进行Normalize
-        # img.sub_(0.5).div_(0.5)
-        c, h, w = img.size()
-        pad_img = torch.FloatTensor(*self.max_size).fill_(0)
-        pad_img[:, :, :w] = img  # right pad
-        if self.max_size[2] != w:  # add border Pad
-            pad_img[:, :, w:] = img[:, :, w - 1].unsqueeze(2).expand(c, h, self.max_size[2] - w)
-        data['img']= pad_img
-        return data
-
+# @PIPELINES.register_module
+# class NormalizePADToTensor(object):
+#     """
+#     max_size:tuple(c,h,w)
+#     """
+#     def __init__(self, max_size, PAD_type='right'):
+#         assert  isinstance(max_size,tuple) and len(max_size)==3,"max_size must be tuple(c,h,w)"
+#         self.toTensor = transforms.ToTensor()
+#         self.max_size = max_size
+#         self.max_width_half = math.floor(max_size[2] / 2)
+#         self.PAD_type = PAD_type
+#
+#     def __call__(self, data:{}):
+#         img = data.get('img')
+#         img = self.toTensor(img)
+#         ## Normalize 导致小票文字区域出现黑白断点，所以不进行Normalize
+#         # img.sub_(0.5).div_(0.5)
+#         c, h, w = img.size()
+#         pad_img = torch.FloatTensor(*self.max_size).fill_(0)
+#         pad_img[:, :, :w] = img  # right pad
+#         if self.max_size[2] != w:  # add border Pad
+#             pad_img[:, :, w:] = img[:, :, w - 1].unsqueeze(2).expand(c, h, self.max_size[2] - w)
+#         data['img']= pad_img
+#         return data
+#
 
 @PIPELINES.register_module
 class Ndarray2tensor(object):
@@ -504,6 +504,10 @@ class RandomFlip(object):
 
     def __call__(self,data:dict):
         flip = True if np.random.rand() < self.flip_ratio else False
+        ##如果没有标注框，则跳过
+        text_polys = data.get("gt_polys")
+        if text_polys.shape[0] == 0:
+            return data
         if flip:
             #需要翻转
             if self.direction =="horizontal":
@@ -671,7 +675,7 @@ class CheckPolys(object):
         h,w,_ = data['img'].shape
         polys = data['gt_polys']
         if polys.shape[0] == 0:
-            return polys
+            return data
         polys[:, :, 0] = np.clip(polys[:, :, 0], 0, w - 1)  # x coord not max w-1, and not min 0
         polys[:, :, 1] = np.clip(polys[:, :, 1], 0, h - 1)  # y coord not max h-1, and not min 0
 

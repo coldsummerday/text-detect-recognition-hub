@@ -14,7 +14,7 @@ from .pipelines import Compose
 
 @DATASETS.register_module
 class RecLmdbCV2Dataset(Dataset):
-    def __init__(self,root,pipeline,charsets,default_w = 100,default_h=32,data_filtering_off=False,rgb =False,sensitive=True,batch_max_length=25):
+    def __init__(self,root,pipeline,charsets,default_w = 100,default_h=32,data_filtering_off=True,rgb =False,sensitive=True,batch_max_length=25):
         self.root = root
         self.charsets = charsets
         self.rgb = rgb
@@ -94,18 +94,19 @@ class RecLmdbCV2Dataset(Dataset):
             img_key = 'image-%09d'.encode() % index
             imgbuf = txn.get(img_key)
 
-            buf = six.BytesIO()
-            buf.write(imgbuf)
-            buf.seek(0)
+            # buf = six.BytesIO()
+            # buf.write(imgbuf)
+            # buf.seek(0)
             try:
+                imgdata = np.frombuffer(imgbuf, dtype = 'uint8')
                 if self.rgb:
-                    image = np.asarray(bytearray(buf.read()), dtype="uint8")
-                    img = cv2.imdecode(image, cv2.IMREAD_COLOR)
+                    # image = np.asarray(bytearray(buf.read()), dtype="uint8")
+                    img = cv2.imdecode(imgdata, cv2.IMREAD_COLOR)
 
                     # img = Image.open(buf).convert('RGB')  # for color image
                 else:
-                    image = np.asarray(bytearray(buf.read()), dtype="uint8")
-                    img = cv2.imdecode(image, cv2.IMREAD_GRAYSCALE)
+                    # image = np.asarray(bytearray(buf.read()), dtype="uint8")
+                    img = cv2.imdecode(imgdata, cv2.IMREAD_GRAYSCALE)
                     # img = Image.open(buf).convert('L')
 
             except IOError:
@@ -117,7 +118,8 @@ class RecLmdbCV2Dataset(Dataset):
                 else:
                     img = np.zeros((self.default_h, self.default_w, 1))
                     # img = Image.new('L', (self.default_h, self.default_w))
-                label = '[dummy_label]'
+                # label = '[dummy_label]'
+                label = ''
 
             if not self.sensitive:
                 label = label.lower()
@@ -125,6 +127,8 @@ class RecLmdbCV2Dataset(Dataset):
             # We only train and evaluate on alphanumerics (or pre-defined character set in train.py)
             out_of_char = f'[^{self.charsets}]'
             label = re.sub(out_of_char, '', label)
+            if len(label)>=self.batch_max_length:
+                label = label[:self.batch_max_length]
         ##在dataloader前变label 为tensor,保证在data_parallel时能正确地被均分
         data = {
             "img":img,

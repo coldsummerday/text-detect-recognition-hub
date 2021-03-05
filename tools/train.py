@@ -12,10 +12,9 @@ sys.path.append(osp.join(this_path, '../'))
 import torch
 from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel, DataParallel
-
 from texthub.utils import Config
 from texthub.datasets import build_dataset
-from texthub.modules import build_detector
+from texthub.modules import build_detector,build_recognizer
 from texthub.utils import get_root_logger, set_random_seed
 from texthub.utils.dist_utils import init_dist, get_dist_info
 from texthub.core.optimizer import build_optimizer
@@ -40,6 +39,7 @@ def parse_args():
         help='whether to set deterministic options for CUDNN backend.')
     parser.add_argument("--distributed", default=1, type=int, help="use DistributedDataParallel to train")
     parser.add_argument('--local_rank', type=int, default=0)
+    parser.add_argument("--task",type=str,choices=["reco","detect"],default="detect")
 
     args = parser.parse_args()
     if 'LOCAL_RANK' not in os.environ:
@@ -91,8 +91,12 @@ def main():
 
     meta['seed'] = cfg.seed
 
-    model = build_detector(
+    if args.task=="detect":
+        model = build_detector(
         cfg.model, train_cfg=cfg.train_cfg, test_cfg=cfg.test_cfg)
+    elif args.task =="reco":
+        model = build_recognizer(
+            cfg.model, train_cfg=cfg.train_cfg, test_cfg=cfg.test_cfg)
 
     dataset = build_dataset(cfg.data.train)
     logger = get_root_logger(cfg.log_level)
@@ -103,23 +107,25 @@ def main():
             dataset,
             batch_size=cfg.data.batch_size,
             pin_memory=True,
+            drop_last=True,
             sampler=DistributedSampler(dataset, num_replicas=world_size, rank=rank)
         )
         model = DistributedDataParallel(
             model.cuda(),
             device_ids=[torch.cuda.current_device()],
-            broadcast_buffers=False)
+            broadcast_buffers=False,
+            find_unused_parameters=True)
     else:
         data_loader = torch.utils.data.DataLoader(
             dataset,
             batch_size=cfg.data.batch_size,
             shuffle=True,
             pin_memory=True,
+            drop_last=True,
         )
 
         if torch.cuda.is_available() and cfg.gpus != 0:
             # put model on gpus
-            ##TODO:  torch.cuda.current_device() 和cfg.gpus联合的带device_ids
             model = DataParallel(model, device_ids=range(cfg.gpus)).cuda()
 
     # build trainner

@@ -42,7 +42,7 @@ def make_cpp_ext(name:str,module:str,sources:list,include_dirs:list,library_dirs
         **kwargs
     )
 
-def make_cuda_ext(name, module, sources=[], sources_cuda=[]):
+def make_cuda_ext(name, module, sources=[], sources_cuda=[],include_dirs=[]):
 
     define_macros = []
     extra_compile_args = {'cxx': []}
@@ -60,9 +60,10 @@ def make_cuda_ext(name, module, sources=[], sources_cuda=[]):
         print(f'Compiling {name} without CUDA')
         extension = Extension
         # raise EnvironmentError('CUDA is required to compile MMDetection!')
-
+    sources = sources[::-1]
     return extension(
         name='{}.{}'.format(module, name),
+        include_dirs=[os.path.join(*module.split('.'), p) for p in include_dirs],
         sources=[os.path.join(*module.split('.'), p) for p in sources],
         define_macros=define_macros,
         extra_compile_args=extra_compile_args)
@@ -105,7 +106,26 @@ if __name__ == '__main__':
                 sources_cuda=[
                      'src/deform_pool_cuda.cpp',
                     'src/deform_pool_cuda_kernel.cu'
-                ])
+                ]),
+            make_cuda_ext(
+                name='ctc2d',
+                module="texthub.ops.ctc_2d",
+                sources=['src/ctc2d.cpp'],
+                sources_cuda=[
+                    "src/cuda/ctc2d_cuda_kernel.cu",
+                    "src/cuda/ctc2d_cuda.cu",
+                ],
+                include_dirs=['src']
+            ),
+            make_cuda_ext(
+                name='nativectc',
+                module="texthub.ops.nativectc",
+                sources=['src/ctc.cpp'],
+                sources_cuda=[
+                    "src/cuda/ctc_cuda.cu",
+                ],
+                include_dirs=['src','src/cuda/']
+            )
             ],
         cmdclass={'build_ext': BuildExtension}
     )

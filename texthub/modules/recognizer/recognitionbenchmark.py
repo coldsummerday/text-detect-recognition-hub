@@ -65,9 +65,7 @@ class FourStageModel(BaseRecognizer):
         img = data.get("img")
         x = self.extract_feat(img)
         data['img'] = x
-        outs = self.label_head(data,return_loss=True)
-        loss_inputs = outs
-        losses = self.label_head.loss(*loss_inputs)
+        losses = self.label_head(data, return_loss=True)
         ##在runner中loss 回传
         return losses
 

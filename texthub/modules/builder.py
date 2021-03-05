@@ -4,7 +4,7 @@ from ..utils import build_from_cfg
 from .registry import (BACKBONES, IMGTRANSFORMATIONS,
                        SEQUENCERECOGNITIONS,
                        RECOGNIZERS,NECKS,HEADS,
-                       ROI_EXTRACTORS, SHARED_HEADS,DETECTORS)
+                       ROI_EXTRACTORS, SHARED_HEADS,DETECTORS,LOSSES)
 
 
 def build(cfg, registry, default_args=None):
@@ -60,8 +60,8 @@ def build_shared_head(cfg):
 #     return build(cfg, HEADS)
 #
 #
-# def build_loss(cfg):
-#     return build(cfg, LOSSES)
+def build_loss(cfg):
+    return build(cfg, LOSSES)
 #
 #
 

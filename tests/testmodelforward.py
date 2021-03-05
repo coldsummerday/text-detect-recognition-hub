@@ -1,8 +1,6 @@
-from texthub.core.train.runner import  Runner
-from texthub.modules import build_recognizer
+
 from texthub.modules import  build_detector
 from texthub.utils import Config
-import torch
 
 from texthub.datasets import build_dataset
 

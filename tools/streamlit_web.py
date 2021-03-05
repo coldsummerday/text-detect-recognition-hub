@@ -21,17 +21,18 @@ import streamlit as st
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 BASEDIR = os.path.abspath(os.path.dirname(__file__))
 #
-# det_config_file = os.path.join(BASEDIR,"../configs/detection/DB/db_resnet18_deform_border.py")
-# det_checkpoint = os.path.join(BASEDIR,"../work_dirs/db/db_resnet18_deform_border/DBDetector_epoch_290.pth")
-
-
-det_config_file = os.path.join(BASEDIR,"../configs/detection/pan/pan_resnet18.py")
-det_checkpoint = os.path.join(BASEDIR,"../work_dirs/pan_cpp/PAN_epoch_120.pth")
+det_config_file = os.path.join(BASEDIR,"../configs/receipt/detection/DB/db_resnet18_deform_border.py")
+det_checkpoint = os.path.join(BASEDIR,"../work_dirs/db/db_resnet18_deform_border/DBDetector_epoch_290.pth")
 
 
 
-rec_config_file = os.path.join(BASEDIR,"../configs/recognition/fourstagerecogition/tps_resnet_lstm_attention_chi_iter.py")
-rec_checkpoint = os.path.join(BASEDIR,"../work_dirs/fourstage_tps_resnet_attention_chinese_iter/iter_300000.pth")
+
+
+# rec_config_file = os.path.join(BASEDIR,"../configs/receipt/recognition/fourstagerecogition/attention_hr_hierachicaldataset.py")
+# rec_checkpoint = os.path.join(BASEDIR,"../work_dirs/receipt/fourstage/attention_hr_hierachicaldataset/FourStageModel_epoch_60.pth")
+
+rec_config_file = os.path.join(BASEDIR,"../configs/receipt/recognition/ctc/ctc_hr_hierachicaldataset.py")
+rec_checkpoint = os.path.join(BASEDIR,"../work_dirs/receipt/ctc/ctc_hr_hierachicaldataset/FourStageModel_epoch_80.pth")
 det_model = init_detector(det_config_file, det_checkpoint, device)
 rec_model = init_recognizer(rec_config_file, rec_checkpoint, device)
 
@@ -96,7 +97,7 @@ def text_recognition(src):
 
 
 
-def addPolygonEdge(bbox:np.ndarray,distance=1.5):
+def addPolygonEdge(bbox:np.ndarray,distance=3):
     """
     bbox:(N,2)
     """

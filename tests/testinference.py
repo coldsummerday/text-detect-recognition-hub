@@ -1,4 +1,3 @@
-from texthub.core.train.runner import  Runner
 from texthub.modules import build_detector
 from texthub.utils import Config
 import torch
@@ -26,3 +25,43 @@ img = data['img']
 labels = data['label']
 b = model(img, None,return_loss=False)
 print(b)
+
+
+backbone_cfg = dict(
+    type="ResnetDilated",
+orig_resnet = dict(
+    depth=18,
+        arch="resnet18",
+        norm="gn"
+)
+)
+
+import  torch
+from texthub.modules.losses.rec_ctc_loss2d import CTCLoss2D
+ctc_loss = CTCLoss2D()
+N, H, T, C = 16, 8, 32, 20
+mask = torch.randn(T, H, N).log_softmax(1).detach().requires_grad_()
+classify = torch.randn(T, H, N, C).log_softmax(3).detach().requires_grad_()
+targets = torch.randint(1, C, (N, C), dtype=torch.long)
+input_lengths = torch.full((N,), T, dtype=torch.long)
+target_lengths = torch.randint(10, 31, (N,), dtype=torch.long)
+loss = ctc_loss(mask, classify, targets, input_lengths, target_lengths)
+loss.backward()
+
+# from texthub.modules.backbones.resnet_dilated import ResnetDilated
+# a = ResnetDilated(orig_resnet = dict(
+#     type="DetResNet",
+#     depth=50,
+#         arch="resnet50",
+#         norm="gn"
+# ))
+# input_tensor = torch.ones((3,3,64,256))
+# b = a(input_tensor)
+# from texthub.modules.necks import PPMDeepsup
+# ppm = PPMDeepsup()
+# c = ppm(b)
+#
+from torchvision.models import resnet18
+model = resnet18()
+from  torch.optim.adam import Adam
+a = Adam()

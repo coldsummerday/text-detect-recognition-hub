@@ -32,15 +32,83 @@ class AttentionLabelEncode(object):
         text = [self.dict[char] for char in text]
         batch_text[1:1 + len(text)] = torch.LongTensor(text)  # batch_text[:, 0] = [GO] token
 
-        return batch_text.to(device)
+        return batch_text.to(device),torch.IntTensor(length).to(device)
 
     def __call__(self, data:{}):
         img = data.get("img")
         label = data.get('label')
+        if type(label)!=str:
+            label = data.get("ori_label")
         device = img.device
-        text= self.encode(label, device=device)
+        text,length_tensor= self.encode(label, device=device)
         data["ori_label"] = label
         data['label'] = text
+        data["attn_text"]=text
+
+
+
+        return data
+
+@PIPELINES.register_module
+class CTCLabelEncode(object):
+    """ Convert between text-label and text-index """
+    def __init__(self, charsets,batch_max_length=32):
+        # character (str): set of the possible characters.
+        dict_character = list(charsets)
+        self.dict = {}
+        for i, char in enumerate(dict_character):
+            # NOTE: 0 is reserved for 'blank' token required by CTCLoss
+            self.dict[char] = i + 1
+        self.character = ['[blank]'] + dict_character  # dummy '[blank]' token for CTCLoss (index 0)
+        self.batch_max_length = batch_max_length
+
+    def encode(self, text,device):
+        """convert text-label into text-index.
+        input:
+            text: text labels of each image.
+
+        output:
+            text: concatenated text index for CTCLoss.
+                    [sum(text_lengths)] = [text_index_0 + text_index_1 + ... + text_index_(n - 1)]
+            length: length of each text. [batch_size]
+        """
+        length = len(text)
+        text = [self.dict[char] for char in text]
+        if length > self.batch_max_length:
+            length = self.batch_max_length
+        batch_text = torch.LongTensor(self.batch_max_length).fill_(0)
+        batch_text[:length] = torch.IntTensor(text[:length]).to(device)
+        return (batch_text, torch.IntTensor([length]).to(device))
+
+    def decode(self, text_index, length):
+        """ convert text-index into text-label. """
+        texts = []
+        index = 0
+        for l in length:
+            t = text_index[index:index + l]
+
+            char_list = []
+            for i in range(l):
+                if t[i] != 0 and (not (i > 0 and t[i - 1] == t[i])):  # removing repeated characters and blank.
+                    char_list.append(self.character[t[i]])
+            text = ''.join(char_list)
+
+            texts.append(text)
+            index += l
+        return texts
+
+    def __call__(self, data:{}):
+        img = data.get("img")
+        label = data.get('label')
+        if type(label)!=str:
+            label = data.get("ori_label")
+        device = img.device
+        text_tensor,length_tensor= self.encode(label, device=device)
+        data["ori_label"] = label
+        data['label'] = text_tensor
+        data["length"] = length_tensor
+        data["ctc_text"] = text_tensor
+        data["ctc_length"] = length_tensor
         return data
 
 

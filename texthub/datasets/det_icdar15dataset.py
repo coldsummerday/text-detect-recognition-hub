@@ -9,7 +9,7 @@ import os
 import cv2
 @DATASETS.register_module
 class IcdarDetectDataset(Dataset):
-    def __init__(self,root:str,pipeline, img_channel=3,img_prefix = "imgs",gt_prefix="gts",line_flag=True):
+    def __init__(self,root:str,pipeline, img_channel=3,img_prefix = "imgs",gt_prefix="gts",gt_file_prefix="gt_",line_flag=True):
         """
         if line_flag ==True,390,902,1856,902,1856,1225,390,1225,0,"金氏眼镜"
         Flase:237,48,237,75,322,75,322,48,明天
@@ -19,7 +19,7 @@ class IcdarDetectDataset(Dataset):
         self.line_flag = line_flag
 
         self.img_path_fmt = os.path.join(root,img_prefix,"{}.jpg")
-        self.gt_path_fmt = os.path.join(root,gt_prefix,"gt_{}.txt")
+        self.gt_path_fmt = os.path.join(root,gt_prefix,gt_file_prefix+"{}.txt")
         self.ids_list = self.load_index(root)
         self.pipeline = Compose(pipeline)
 
@@ -74,21 +74,21 @@ class IcdarDetectDataset(Dataset):
         return np.array(boxes, dtype=np.float32), np.array(text_tags, dtype=np.bool)
     def _get_label(self,label_line_params:list):
         if self.line_flag:
-            text_tag = label_line_params[8]
-            text_label = label_line_params[9]
-            #去除引号
+            text_tag = label_line_params[8:]
+            text_label = label_line_params[9:]
+            # 去除引号
             text_label = text_label[1:-1]
-            if text_tag=='1':
-                text_tag=False
-            else:
-                text_tag = True
-        else:
-            text_label = label_line_params[8]
-            if text_label=="*" or text_label=='###':
+            if text_tag == '1':
                 text_tag = False
             else:
                 text_tag = True
-        return text_tag,text_label
+        else:
+            text_label = label_line_params[8:]
+            if text_label == "*" or text_label == '###' or text_label == "nan":
+                text_tag = False
+            else:
+                text_tag = True
+        return text_tag, "".join(text_label)
 
 
 

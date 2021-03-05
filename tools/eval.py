@@ -28,7 +28,7 @@ def model_inference(model,data_loader,get_pred_func:Callable,get_gt_func:Callabl
     results = []
     gts = []
     for  data in tqdm(data_loader):
-        data['img'] = data['img'].to(device)
+        data = batch_dict_data_todevice(data, device)
         with torch.no_grad():
             result = model(data=data,return_loss=False)
         if type(model) == DataParallel or type(model) == DistributedDataParallel:
@@ -36,10 +36,17 @@ def model_inference(model,data_loader,get_pred_func:Callable,get_gt_func:Callabl
         else:
             result,scores = model.postprocess(result)
         results.extend(get_pred_func(result))
+
         gt = get_gt_func(data)
         gts.extend(gt)
 
     return results,gts
+
+def batch_dict_data_todevice(data:dict,device):
+    for key,values in data.items():
+        if hasattr(values,"to"):
+            data[key]=values.to(device)
+    return data
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -80,8 +87,9 @@ def main():
     data_loader =torch.utils.data.DataLoader(
             dataset,
             batch_size=batch_size,
-            num_workers=batch_size,
-            pin_memory=True
+            num_workers=4,
+            pin_memory=True,
+            drop_last=True,
         )
 
 

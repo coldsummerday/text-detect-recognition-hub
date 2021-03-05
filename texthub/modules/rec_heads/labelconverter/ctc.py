@@ -29,16 +29,15 @@ class CTCLabelConverter(object):
     def decode(self, text_index, length):
         """ convert text-index into text-label. """
         texts = []
-        index = 0
-        for l in length:
-            t = text_index[index:index + l]
-
+        # index = 0
+        for i_index,l in enumerate(length):
+            t = text_index[i_index]
+            # t = text_index[index:index + l]
             char_list = []
             for i in range(l):
                 if t[i] != 0 and (not (i > 0 and t[i - 1] == t[i])):  # removing repeated characters and blank.
                     char_list.append(self.character[t[i]])
             text = ''.join(char_list)
-
             texts.append(text)
-            index += l
+            # index += l
         return texts
