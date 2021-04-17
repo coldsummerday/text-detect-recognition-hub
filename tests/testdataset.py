@@ -28,10 +28,14 @@ import torch
 b=torch.utils.data.DataLoader(
     dataset,
     batch_size=1,
-    num_workers=4,
+    num_workers=1,
     pin_memory=True,
     shuffle=False,
         )
+
+for a in b:
+    print(a['ori_label'])
+    print("----")
 
 
 def datasetitemn2show(index:int,data:dict):
@@ -99,9 +103,9 @@ def show_img(imgs: np.ndarray, color=False):
 # # datasetitemn2show(data)
 # datasetitemn2show(2,data)
 #
-from texthub.modules import build_detector,build_recognizer
-model = build_recognizer(
-            cfg.model, train_cfg=cfg.train_cfg, test_cfg=cfg.test_cfg)
+# from texthub.modules import build_detector,build_recognizer
+# model = build_recognizer(
+#             cfg.model, train_cfg=cfg.train_cfg, test_cfg=cfg.test_cfg)
 
 
 

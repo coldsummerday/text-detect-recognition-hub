@@ -15,6 +15,8 @@ from texthub.utils import print_log
 from .pipelines import Compose
 import random
 
+from .charsets import EnglishNoSensitiveCharset,EnglishSensitiveCharset
+
 @DATASETS.register_module
 class ConcateLmdbDataset(ConcatDataset):
     def __init__(self,**kwargs):
@@ -37,18 +39,19 @@ class LmdbWorkersDataset(Dataset):
                  default_w = 100,default_h=32,
                  data_filtering_off=True,
                  rgb =False,
-                 sensitive=True,
                  batch_max_length=25):
         super(LmdbWorkersDataset, self).__init__()
         self.root = root
         self.charsets = charsets
         self.rgb = rgb
-        self.sensitive = sensitive
 
         self.batch_max_length = batch_max_length
         self.default_h = default_h
         self.default_w = default_w
+        self.nosensitive = False
 
+        if self.charsets == EnglishNoSensitiveCharset:
+            self.nosensitive = True
 
         with lmdb.open(root, max_readers=32, readonly=True, lock=False, readahead=False, meminit=False).begin(write=False) as txn:
             nSamples = int(txn.get('num-samples'.encode()))
@@ -114,9 +117,10 @@ class LmdbWorkersDataset(Dataset):
         if not hasattr(self, 'env'):
             self.open_lmdb()
         img, label = self.get_lmdb_sample_info(self.env, index)
-        if not self.sensitive:
-            label = label.lower()
+
         # We only train and evaluate on alphanumerics (or pre-defined character set in train.py)
+        if self.nosensitive:
+            label = label.lower()
         out_of_char = f'[^{self.charsets}]'
         label = re.sub(out_of_char, '', label)
         if len(label) >= self.batch_max_length:
@@ -179,17 +183,19 @@ class LmdbPILWorkersDataset(Dataset):
                  default_w = 100,default_h=32,
                  data_filtering_off=True,
                  rgb =False,
-                 sensitive=True,
                  batch_max_length=25):
         super(LmdbPILWorkersDataset, self).__init__()
         self.root = root
         self.charsets = charsets
         self.rgb = rgb
-        self.sensitive = sensitive
 
         self.batch_max_length = batch_max_length
         self.default_h = default_h
         self.default_w = default_w
+        self.nosensitive = False
+
+        if self.charsets==EnglishNoSensitiveCharset:
+            self.nosensitive = True
 
         with lmdb.open(root, max_readers=32, readonly=True, lock=False, readahead=False, meminit=False).begin(
                 write=False) as txn:
@@ -221,6 +227,7 @@ class LmdbPILWorkersDataset(Dataset):
 
                     # By default, images containing characters which are not in opt.character are filtered.
                     # You can add [UNK] token to `opt.character` in utils.py instead of this filtering.
+
                     out_of_char = f'[^{self.charsets}]'
                     if re.search(out_of_char, label.lower()):
                         continue
@@ -278,9 +285,10 @@ class LmdbPILWorkersDataset(Dataset):
                     img = Image.new('L', (self.default_h, self.default_w))
                 label = '[dummy_label]'
 
-            if not self.sensitive:
-                label = label.lower()
 
+
+            if self.nosensitive:
+                label = label.lower()
             # We only train and evaluate on alphanumerics (or pre-defined character set in train.py)
             out_of_char = f'[^{self.charsets}]'
             label = re.sub(out_of_char, '', label)

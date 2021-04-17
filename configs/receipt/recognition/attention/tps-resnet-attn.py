@@ -9,6 +9,7 @@ train_data_root = [
 ]
 val_data_root = [
     '/data/zhb/data/receipt/end2end/receipt_23nd0126_val/lmdb/',
+
 ]
 
 batch_size=32
