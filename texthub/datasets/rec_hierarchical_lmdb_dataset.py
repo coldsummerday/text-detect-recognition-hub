@@ -27,7 +27,6 @@ class HierarchicalLmdbDataset(Dataset):
         self.default_w = default_w
 
         self.num_samples = 0
-
         # self.env = lmdb.open(root, max_readers=32, readonly=True, lock=False, readahead=False, meminit=False)
         # # set group flag for the sampler
         #
@@ -78,7 +77,7 @@ class HierarchicalLmdbDataset(Dataset):
         try:
             data = self.pipeline(data)
         except Exception as e:
-            print_log("error index:{}".format(index),logger="root")
+            print_log("error index:{},error".format(index),logger="root")
             random_index = random.randint(0,self.num_samples)
             return self.__getitem__(random_index)
 

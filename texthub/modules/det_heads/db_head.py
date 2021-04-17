@@ -6,9 +6,7 @@ from ..registry import HEADS
 import pyclipper
 
 from ..losses import L1BalanceCELoss
-from PIL import Image
-from torchvision import transforms
-import  matplotlib.pyplot as plt
+
 @HEADS.register_module
 class DBHead(nn.Module):
     """

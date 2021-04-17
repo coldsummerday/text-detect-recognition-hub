@@ -135,13 +135,13 @@ def pse_warpper(kernels,min_area=5):
     return np.array(preds), label_values
 
 
-def show_img(imgs: np.ndarray, color=False):
-    import matplotlib.pyplot as plt
-    if (len(imgs.shape) == 3 and color) or (len(imgs.shape) == 2 and not color):
-        imgs = np.expand_dims(imgs, axis=0)
-    for img in imgs:
-        plt.figure()
-        plt.imshow(img, cmap=None if color else 'gray')
+# def show_img(imgs: np.ndarray, color=False):
+#     import matplotlib.pyplot as plt
+#     if (len(imgs.shape) == 3 and color) or (len(imgs.shape) == 2 and not color):
+#         imgs = np.expand_dims(imgs, axis=0)
+#     for img in imgs:
+#         plt.figure()
+#         plt.imshow(img, cmap=None if color else 'gray')
 
 
 

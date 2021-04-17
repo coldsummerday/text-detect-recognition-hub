@@ -31,7 +31,7 @@ det_checkpoint = os.path.join(BASEDIR,"../work_dirs/db/db_resnet18_deform_border
 # rec_config_file = os.path.join(BASEDIR,"../configs/receipt/recognition/fourstagerecogition/attention_hr_hierachicaldataset.py")
 # rec_checkpoint = os.path.join(BASEDIR,"../work_dirs/receipt/fourstage/attention_hr_hierachicaldataset/FourStageModel_epoch_60.pth")
 
-rec_config_file = os.path.join(BASEDIR,"../configs/receipt/recognition/ctc/ctc_hr_hierachicaldataset.py")
+rec_config_file = os.path.join(BASEDIR, "../configs/receipt/recognition/experiments/ctc/ctc_hr_hierachicaldataset.py")
 rec_checkpoint = os.path.join(BASEDIR,"../work_dirs/receipt/ctc/ctc_hr_hierachicaldataset/FourStageModel_epoch_80.pth")
 det_model = init_detector(det_config_file, det_checkpoint, device)
 rec_model = init_recognizer(rec_config_file, rec_checkpoint, device)

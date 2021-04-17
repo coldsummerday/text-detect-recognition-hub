@@ -26,12 +26,12 @@ def eval_text(preds:[str],gts:[str])->dict:
     accuracy = n_correct / float(length)
     norm_ED = norm_ED / float(length)  # ICDAR2019 Normalized Edit Distance
 
-    recall = n_correct / float(length)
-    f1 = 0 if (accuracy + recall) == 0 else (2.0 * accuracy * recall) / (accuracy + recall)
+    # recall = n_correct / float(length)
+    # f1 = 0 if (accuracy + recall) == 0 else (2.0 * accuracy * recall) / (accuracy + recall)
     return dict(
         acc=accuracy,
-        recall=recall,
-        f1=f1,
+        # recall=recall,
+        # f1=f1,
         normed=norm_ED
     )
 

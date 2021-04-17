@@ -2,9 +2,9 @@ import  torch.nn as nn
 
 from .baseresent import BasicBlock
 
-from  ..utils.moduleinit import kaiming_init,normal_init,constant_init
+from  ..utils.moduleinit import kaiming_init,normal_init,constant_init,xavier_init
 from ..registry import BACKBONES
-
+from .rec_encoders.transformer import TransformerEncoder
 
 def gnnorm2d(num_channels, num_groups=32):
     if num_groups > 0:
@@ -22,10 +22,13 @@ class AsterResNet(nn.Module):
             self.ConvNet = ResNet(input_channel, output_channel, BasicBlock, [1, 2, 5, 3],norm_layer=gnnorm2d)
         else:
             self.ConvNet = ResNet(input_channel, output_channel, BasicBlock, [1, 2, 5, 3], norm_layer=None)
-        self.TextAttentionModule = TextAttentionModule(output_channel, output_channel)
+
+        #TODO:Not use textattention
+        #self.TextAttentionModule = TextAttentionModule(output_channel, output_channel)
     def forward(self, input):
         output = self.ConvNet(input)
-        return self.TextAttentionModule(output)
+        return output
+        #return self.TextAttentionModule(output)
 
 
     def init_weights(self,pretrained=None):
@@ -37,9 +40,7 @@ class AsterResNet(nn.Module):
                     constant_init(m, 1)
                 elif isinstance(m, nn.Linear):
                     normal_init(m, std=0.01)
-                ##TODO:GroupNorm init
         elif isinstance(pretrained,str):
-            ##TODO:load pretrain model from pth
             pass
         else:
             raise TypeError('pretrained must be a str or None')
@@ -54,6 +55,46 @@ class TextAttentionModule(nn.Module):
         x = self.sigmoid(x)
         x = x*features
         return x
+
+@BACKBONES.register_module
+class TransformerResNet(nn.Module):
+    def __init__(self,in_channels:int,hidden_dim:int,encoder_dict:dict):
+        super(TransformerResNet, self).__init__()
+        self.convlayers = nn.Sequential(
+            nn.Conv2d(in_channels,out_channels=int(hidden_dim/2),kernel_size=3,stride=1,padding=1),
+            nn.BatchNorm2d(int(hidden_dim/2)),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2,stride=2,padding=0,dilation=1,ceil_mode=False),
+
+            nn.Conv2d(in_channels=int(hidden_dim/2),out_channels=hidden_dim,kernel_size=3,stride=1,padding=1),
+            nn.BatchNorm2d(hidden_dim),
+            nn.ReLU(),
+
+            nn.MaxPool2d(kernel_size=2,stride=2,padding=0,dilation=1,ceil_mode=False)
+
+        )
+        self.transfomer_encoder_layer = TransformerEncoder(**encoder_dict)
+
+    def init_weights(self, pretrained=None):
+        if pretrained is None:
+            for m in self.modules():
+                if isinstance(m, nn.Conv2d):
+                    kaiming_init(m)
+                elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                    constant_init(m, 1)
+                elif isinstance(m, nn.Linear):
+                    xavier_init(m)
+                elif isinstance(m, (nn.LSTM, nn.LSTMCell)):
+                    kaiming_init(m, is_rnn=True)
+
+    def forward(self,x):
+        conv_out = self.convlayers(x)
+        out = self.transfomer_encoder_layer(conv_out)
+        return out
+
+
+
+
 
 
 

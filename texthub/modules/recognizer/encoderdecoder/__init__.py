@@ -1,1 +1,1 @@
-from .plugnet import PlugNet
+from .attention2d import Satrn

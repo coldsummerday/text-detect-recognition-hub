@@ -1,9 +1,9 @@
-from ..registry import PIPELINES
-import  numpy as np
 
+import os
 import torch
 import torchvision.transforms as transforms
-import torch.nn.functional as F
+
+
 # ABCs from collections will be deprecated in python 3.8+,
 # while collections.abc is not available in python 2.7
 try:
@@ -11,17 +11,15 @@ try:
 except ImportError:
     import collections as collections_abc
 import cv2
-
-import  random
-from PIL import Image,ImageEnhance,ImageFont,ImageDraw
+import random
+from PIL import Image, ImageEnhance, ImageFont, ImageDraw
 from copy import deepcopy
-import  numpy as np
+import numpy as np
+import math
 
-
-import os
 this_path = os.path.split(os.path.realpath(__file__))[0]
 from .text_image_aug.augment import tia_distort, tia_stretch, tia_perspective
-
+from ..registry import PIPELINES
 
 @PIPELINES.register_module
 class ResizeRecognitionImageCV2(object):
@@ -30,24 +28,24 @@ class ResizeRecognitionImageCV2(object):
     img_scale:(h,w)
     尽量不resize 图片，只将原始图片贴到mask上，保持图像原来清晰度
     """
-    def __init__(self,img_scale=None,img_channel = 1):
-        assert  isinstance(img_scale,tuple) and len(img_scale)==2,"img_scale must be tuple(h,w)"
-        self.default_h,self.default_w = img_scale
+
+    def __init__(self, img_scale=None, img_channel=1):
+        assert isinstance(img_scale, tuple) and len(img_scale) == 2, "img_scale must be tuple(h,w)"
+        self.default_h, self.default_w = img_scale
         self.img_channel = img_channel
 
-
-    def __call__(self, data:{}):
-        #应该添加竖排文字图像的处理
+    def __call__(self, data: {}):
+        # 应该添加竖排文字图像的处理
         # img
         img = data["img"]
-        if img.ndim==2:
-            h,w = img.shape
+        if img.ndim == 2:
+            h, w = img.shape
         else:
-            h,w,_ = img.shape
-        if self.img_channel == 1 and img.ndim==3:
-            img = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
-        if h<self.default_h and w < self.default_w:
-            if self.img_channel==1:
+            h, w, _ = img.shape
+        if self.img_channel == 1 and img.ndim == 3:
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        if h < self.default_h and w < self.default_w:
+            if self.img_channel == 1:
                 masked_image = self.mask_image_gray(img)
             else:
                 masked_image = self.mask_image_color(img)
@@ -55,10 +53,10 @@ class ResizeRecognitionImageCV2(object):
             return data
 
         ##保持 原始图像长宽比
-        if h > self.default_h and w <self.default_w:
+        if h > self.default_h and w < self.default_w:
             img = self.resize_by_h(img)
-        elif w > self.default_w and h<self.default_h:
-            img= self.resize_by_w(img)
+        elif w > self.default_w and h < self.default_h:
+            img = self.resize_by_w(img)
         else:
             ##宽跟高都超过了限定
             img = cv2.resize(img, (self.default_w, self.default_h))
@@ -83,112 +81,134 @@ class ResizeRecognitionImageCV2(object):
         # data["img"] = resized_image
         # return data
 
-    def resize_by_h(self,img:np.ndarray):
-        if img.ndim==2:
-            h,w = img.shape
+    def resize_by_h(self, img: np.ndarray):
+        if img.ndim == 2:
+            h, w = img.shape
         else:
-            h,w,_ = img.shape
+            h, w, _ = img.shape
         shrinking_ratio = self.default_h / float(h)
 
         img = cv2.resize(img, (int(w * shrinking_ratio), self.default_h))
 
         return img
 
-    def resize_by_w(self,img:np.ndarray):
-        if img.ndim==2:
-            h,w = img.shape
+    def resize_by_w(self, img: np.ndarray):
+        if img.ndim == 2:
+            h, w = img.shape
         else:
-            h,w,_ = img.shape
+            h, w, _ = img.shape
         shrinking_ratio = self.default_w / float(w)
         img = cv2.resize(img, (self.default_w, int(h * shrinking_ratio)))
         return img
 
-    def mask_image_gray(self,img:np.ndarray)->np.ndarray:
+    def mask_image_gray(self, img: np.ndarray) -> np.ndarray:
 
         ##cv2 (h,w,c)
-        ori_h,ori_w= img.shape
-        border_pixel = img[ori_h-1, ori_w - 1]
+        ori_h, ori_w = img.shape
+        border_pixel = img[ori_h - 1, ori_w - 1]
         ##numpy 填充
-        mask = np.full((self.default_h, self.default_w),border_pixel).astype("float32")
-
-        start_h = (self.default_h - ori_h)//2
-        start_w = (self.default_w - ori_w)//2
-        mask[start_h:start_h+ori_h,start_w:start_w+ori_w] = img
-        return mask
-
-    def mask_image_color(self,img:np.ndarray)->np.ndarray:
-        ori_h, ori_w,ori_c = img.shape
-
-        mask = np.zeros((self.default_h, self.default_w,3)).astype("float32")
+        mask = np.full((self.default_h, self.default_w), border_pixel).astype("float32")
 
         start_h = (self.default_h - ori_h) // 2
         start_w = (self.default_w - ori_w) // 2
-        mask[start_h:start_h + ori_h, start_w:start_w + ori_w,:] = img
+        mask[start_h:start_h + ori_h, start_w:start_w + ori_w] = img
+        return mask
+
+    def mask_image_color(self, img: np.ndarray) -> np.ndarray:
+        ori_h, ori_w, ori_c = img.shape
+
+        mask = np.zeros((self.default_h, self.default_w, 3)).astype("float32")
+
+        start_h = (self.default_h - ori_h) // 2
+        start_w = (self.default_w - ori_w) // 2
+        mask[start_h:start_h + ori_h, start_w:start_w + ori_w, :] = img
         return mask
 
 
-class GenRecognitionImageCV2(object):
+
+
+@PIPELINES.register_module
+class ResizeRecognitionImage(object):
     """
     文本识别的resize
     img_scale:(h,w)
-    尽量不resize 图片，只将原始图片贴到mask上，保持图像原来清晰度
+    保持h不变的情况下,根据比例resizetup
     """
-    def __init__(self,img_scale=None,img_channel = 1,font_file="sont.ttf",font_color="black"):
-        assert  isinstance(img_scale,tuple) and len(img_scale)==2,"img_scale must be tuple(h,w)"
-        self.default_h,self.default_w = img_scale
-        self.img_channel = img_channel
-        self.font_handler = ImageFont.truetype(os.path.join(this_path,'../resources/',font_file),int(self.default_h/4*3),encoding="utf-8")
-        # self.font_handler = ImageFont.truetype("/home/zhou/project/receipt/text-detect-recognition-hub/texthub/datasets/resources/sont.ttf",int(self.default_h/4*3),encoding="utf-8")
-        self.font_color_value = 0
-        if font_color=="white":
-            self.font_color_value = 255
 
+    def __init__(self, img_scale=None):
+        assert isinstance(img_scale, tuple) and len(img_scale) == 2, "img_scale must be tuple(h,w)"
+        self.default_h, self.default_w = img_scale
 
-    def __call__(self, data:{}):
-
+    def __call__(self, data: {}):
         # img
-        img = data["img"]
-        text = data["text"]
-        if img.ndim==2:
-            ori_h,ori_w = img.shape
-            border_pixel = img[ori_h - 1, ori_w - 1]
-            mask = np.full((self.default_h, self.default_w), border_pixel).astype("float32")
-            pilimg = Image.fromarray(mask)
-            draw = ImageDraw.Draw(pilimg)
-            draw.text((0, 0), text, self.font_color_value, font=self.font_handler)
-            gen_img = np.array(pilimg)
-            data["gen_img"]=gen_img
-            return data
+        img = data.get("img")
+
+        w, h = img.size
+        ratio = w / float(h)
+        if math.ceil(self.default_h * ratio) > self.default_w:
+            resized_w = self.default_w
         else:
-            ori_h,ori_w,_ = img.shape
-            # cv2img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            mask = Image.new("RGBA",(self.default_w,self.default_h),(int(img[ori_h - 1, ori_w - 1][2]),int(img[ori_h - 1, ori_w - 1][1]),int(img[ori_h - 1, ori_w - 1][0]),0))
-            # border_pixel = img[ori_h - 1, ori_w - 1]
-            # mask = np.zeros((self.default_h, self.default_w,3)).astype("float32")
-            # mask[:,:,0]= np.full((self.default_h, self.default_w), border_pixel[0]).astype("float32")
-            # mask[:, :, 1] = np.full((self.default_h, self.default_w), border_pixel[1]).astype("float32")
-            # mask[:, :, 2] = np.full((self.default_h, self.default_w), border_pixel[2]).astype("float32")
-            # cv2img = cv2.cvtColor(mask, cv2.COLOR_BGR2RGB)
-            #
-            # pilimg = Image.fromarray(cv2img)
-            draw = ImageDraw.Draw(mask)  # 图片上打印
-            draw.text((0, 0), text, (self.font_color_value, self.font_color_value, self.font_color_value), font=self.font_handler)
-            gen_img = cv2.cvtColor(np.array(mask), cv2.COLOR_RGB2BGR)
-            data["gen_img"] = gen_img
-            return data
+            resized_w = math.ceil(self.default_h * ratio)
+        resized_image = img.resize((resized_w, self.default_h), Image.BICUBIC)
+        data["img"] = resized_image
         return data
+
+@PIPELINES.register_module
+class ResizeRecognitionFixWhImage(object):
+    """
+    文本识别的resize到固定大小
+    img_scale:(h,w)
+
+    """
+
+    def __init__(self, img_scale=None):
+        assert isinstance(img_scale, tuple) and len(img_scale) == 2, "img_scale must be tuple(h,w)"
+        self.default_h, self.default_w = img_scale
+
+    def __call__(self, data: {}):
+        # img
+        img = data.get("img")
+
+        resized_image = img.resize((self.default_w, self.default_h), Image.BICUBIC)
+        data["img"] = resized_image
+        return data
+
+@PIPELINES.register_module
+class NormalizePADToTensor(object):
+    """
+    max_size:tuple(c,h,w)
+    """
+
+    def __init__(self, max_size, PAD_type='right'):
+        assert isinstance(max_size, tuple) and len(max_size) == 3, "max_size must be tuple(c,h,w)"
+        self.toTensor = transforms.ToTensor()
+        self.max_size = max_size
+        self.max_width_half = math.floor(max_size[2] / 2)
+        self.PAD_type = PAD_type
+
+    def __call__(self, data: {}):
+        img = data.get('img')
+        img = self.toTensor(img)
+        img.sub_(0.5).div_(0.5)
+        c, h, w = img.size()
+        pad_img = torch.FloatTensor(*self.max_size).fill_(0)
+        pad_img[:, :, :w] = img  # right pad
+        if self.max_size[2] != w:  # add border Pad
+            pad_img[:, :, w:] = img[:, :, w - 1].unsqueeze(2).expand(c, h, self.max_size[2] - w)
+        data['img'] = pad_img
+        return data
+
 
 @PIPELINES.register_module
 class GennerateBlurImage(object):
     def __init__(self):
         self.funcs = {
-      "contrast": lambda img: self.contrast(img),
-      "gaussian_blur": lambda img: self.gaussian_blur(img),
-      "down_up_sample": lambda img: self.down_up_sample(img),
-    }
+            "contrast": lambda img: self.contrast(img),
+            "gaussian_blur": lambda img: self.gaussian_blur(img),
+            "down_up_sample": lambda img: self.down_up_sample(img),
+        }
 
-
-    def __call__(self,data:dict):
+    def __call__(self, data: dict):
         img = data["img"]
         hr_img = deepcopy(img)
         augmentations = ['contrast', 'gaussian_blur', 'down_up_sample']
@@ -200,33 +220,53 @@ class GennerateBlurImage(object):
         data["img"] = hr_img.astype("float32")
         return data
 
-
-
-    def gaussian_blur(self, img:np.ndarray)->np.ndarray:
+    def gaussian_blur(self, img: np.ndarray) -> np.ndarray:
         g_kernel = random.randint(1, 5) * 2 + 1
         img = cv2.GaussianBlur(img, ksize=(g_kernel, g_kernel), sigmaX=0, sigmaY=0)
         return img
 
-
-    def contrast(self, img:np.ndarray)->np.ndarray:
-        copy_img=Image.fromarray(np.uint8(img))
-        enhance_img= ImageEnhance.Contrast(copy_img).enhance(1 + 5 * random.choice([-1, 1]))
+    def contrast(self, img: np.ndarray) -> np.ndarray:
+        copy_img = Image.fromarray(np.uint8(img))
+        enhance_img = ImageEnhance.Contrast(copy_img).enhance(1 + 5 * random.choice([-1, 1]))
         return np.asarray(enhance_img)
 
-    def down_up_sample(self, img:np.ndarray):
-        if len(img.shape)==3:
-            ori_h, ori_w,ori_c = img.shape
+    def down_up_sample(self, img: np.ndarray):
+        if len(img.shape) == 3:
+            ori_h, ori_w, ori_c = img.shape
         else:
             ori_h, ori_w = img.shape
         size = (ori_w, ori_h)
-        new_size = (int(ori_w / (random.random() * 2 + 1)), int(ori_h/ (random.random() * 2 + 1)))
+        new_size = (int(ori_w / (random.random() * 2 + 1)), int(ori_h / (random.random() * 2 + 1)))
         ##down
-        img = cv2.resize(img,new_size)
+        img = cv2.resize(img, new_size)
 
-        #up_sample
-        img = cv2.resize(img,size)
+        # up_sample
+        img = cv2.resize(img, size)
         return img
 
+
+@PIPELINES.register_module
+class ToTensorRecognition(object):
+    def __init__(self):
+        self.to_tensor_func = transforms.ToTensor()
+    def __call__(self, data: dict) -> dict:
+        for key, value in data.items():
+            if key.find("img") != -1:
+                new_value = self.to_tensor_func(value)
+                data[key] = new_value
+        return data
+
+
+@PIPELINES.register_module
+class NormalizeRecognition(object):
+    """Normalize a tensor image with mean and standard deviation."""
+
+    def __init__(self, mean, std):
+        self.mean = mean
+        self.std = std
+    def __call__(self, results):
+        results['img'] = transforms.functional.normalize(results['img'], self.mean, self.std)
+        return results
 
 @PIPELINES.register_module
 class RecognitionImageCV2Tensor(object):
@@ -234,10 +274,11 @@ class RecognitionImageCV2Tensor(object):
         # assert  img_channel in [1,3]
         # self.img_channel = img_channel
         self.to_tensor_func = transforms.ToTensor()
-    def __call__(self,data:dict)->dict:
-        for key,value in data.items():
 
-            if key.find("img")!=-1:
+    def __call__(self, data: dict) -> dict:
+        for key, value in data.items():
+
+            if key.find("img") != -1:
                 new_value = self.to_tensor_func(np.array(value))
                 data[key] = new_value
         return data
@@ -253,30 +294,31 @@ class RecognitionImageCV2Tensor(object):
         # data["img"] = torch.from_numpy(img_array)
         # return data
 
+
 @PIPELINES.register_module
 class RecognitionNormalizeTensor(object):
-    def __init__(self,RGB_MEAN=[122.67891434, 116.66876762, 104.00698793]):
-        if RGB_MEAN[0]>1 and RGB_MEAN[0]<256:
-            RGB_MEAN = [value/256 for value in RGB_MEAN]
+    def __init__(self, RGB_MEAN=[122.67891434, 116.66876762, 104.00698793]):
+        if RGB_MEAN[0] > 1 and RGB_MEAN[0] < 256:
+            RGB_MEAN = [value / 256 for value in RGB_MEAN]
 
-        self.normal_func = transforms.Normalize(mean=RGB_MEAN,std=[0.229, 0.224, 0.225])
-    def __call__(self,data:dict)->dict:
-        for key,value in data.items():
-            if key.find("img")!=-1:
+        self.normal_func = transforms.Normalize(mean=RGB_MEAN, std=[0.229, 0.224, 0.225])
+
+    def __call__(self, data: dict) -> dict:
+        for key, value in data.items():
+            if key.find("img") != -1:
                 new_value = self.normal_func(value)
                 data[key] = new_value
         return data
-
 
 
 ##TODO:BUG 并没有弯曲文本的作用
 @PIPELINES.register_module
 class TIATransform(object):
     ##概率必须是1
-    def __init__(self,prob=1):
+    def __init__(self, prob=1):
         self.prob = prob
-    
-    def tiaFunc(self,img:np.ndarray)->np.ndarray:
+
+    def tiaFunc(self, img: np.ndarray) -> np.ndarray:
 
         img_height, img_width = img.shape[0:2]
         new_img = img
@@ -303,66 +345,63 @@ class TIATransform(object):
                 # print(
                 #     "Exception occured during tia_perspective, pass it...")
         return new_img
-    def __call__(self,data:dict)->dict:
-        for key,value in data.items():
-            if key.find("img")!=-1:
-                
+
+    def __call__(self, data: dict) -> dict:
+        for key, value in data.items():
+            if key.find("img") != -1:
                 new_value = self.tiaFunc(value)
                 data[key] = new_value
         return data
+
 
 @PIPELINES.register_module
 class CV2ImageToGray(object):
     def __init__(self):
         pass
-    def __call__(self,data:dict)->dict:
-        for key,value in data.items():
-            if key.find("img")!=-1 and len(value.shape)==3 and value.shape[2]==3:
 
-                new_value =cv2.cvtColor(value,cv2.COLOR_RGB2GRAY)
+    def __call__(self, data: dict) -> dict:
+        for key, value in data.items():
+            if key.find("img") != -1 and len(value.shape) == 3 and value.shape[2] == 3:
+                new_value = cv2.cvtColor(value, cv2.COLOR_RGB2GRAY)
                 data[key] = new_value
         return data
-
-    
-
-            
-    
-
 
 
 @PIPELINES.register_module
 class GasussNoise(object):
-    def __init__(self,prob=0.4,mean=0,var =0.1):
+    def __init__(self, prob=0.4, mean=0, var=0.1):
         self.prob = prob
         self.mean = mean
         self.var = var
-    def noiseFunc(self,img:np.ndarray)->np.ndarray:
+
+    def noiseFunc(self, img: np.ndarray) -> np.ndarray:
         """
         Gasuss noise
         """
 
-        noise = np.random.normal(self.mean, self.var**0.5, img.shape)
+        noise = np.random.normal(self.mean, self.var ** 0.5, img.shape)
         out = img + 0.5 * noise
         out = np.clip(out, 0, 255)
         out = np.uint8(out)
         return out
 
-    def __call__(self,data:dict)->dict:
+    def __call__(self, data: dict) -> dict:
         if random.random() > self.prob:
             return data
 
-        for key,value in data.items():
-            if key.find("img")!=-1:
+        for key, value in data.items():
+            if key.find("img") != -1:
                 new_value = self.noiseFunc(value)
                 data[key] = new_value
         return data
 
+
 @PIPELINES.register_module
 class Jitter(object):
-    def __init__(self,prob=0.4):
+    def __init__(self, prob=0.4):
         self.prob = prob
 
-    def jitterFunc(self,img:np.ndarray):
+    def jitterFunc(self, img: np.ndarray):
         w, h, _ = img.shape
         if h > 10 and w > 10:
             thres = min(w, h)
@@ -373,43 +412,36 @@ class Jitter(object):
             return img
         else:
             return img
-    def __call__(self,data:dict)->dict:
+
+    def __call__(self, data: dict) -> dict:
         if random.random() > self.prob:
             return data
 
-        for key,value in data.items():
-            if key.find("img")!=-1:
+        for key, value in data.items():
+            if key.find("img") != -1:
                 new_value = self.jitterFunc(value)
                 data[key] = new_value
         return data
 
 
-
 @PIPELINES.register_module
 class GaussianBlur(object):
-    def __init__(self,prob=0.4):
+    def __init__(self, prob=0.4):
         self.prob = prob
 
-    def blurFunc(self,img:np.ndarray)->np.ndarray:
+    def blurFunc(self, img: np.ndarray) -> np.ndarray:
         h, w, _ = img.shape
-        if h > 10 and w > 10 :
+        if h > 10 and w > 10:
             return cv2.GaussianBlur(img, (5, 5), 1)
         else:
             return img
-    def __call__(self,data:dict)->dict:
+
+    def __call__(self, data: dict) -> dict:
         if random.random() > self.prob:
             return data
 
-        for key,value in data.items():
-            if key.find("img")!=-1:
+        for key, value in data.items():
+            if key.find("img") != -1:
                 new_value = self.blurFunc(value)
                 data[key] = new_value
         return data
-
-
-
-
-
-
-
-

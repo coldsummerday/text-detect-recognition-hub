@@ -7,12 +7,13 @@ this_path = os.path.split(os.path.realpath(__file__))[0]
 sys.path.append(osp.join(this_path,'../'))
 from texthub.utils import Config
 from texthub.datasets import build_dataset
+
 import  torch
 from PIL import Image
 from torchvision import transforms
 # config_file = "./configs/recoginition/attention/tps_resnet_lstm_attention_chi_iter_maskresize.py"
 # config_file = "./configs/receipt/recognition/plugnet.py"
-config_file = "./configs/receipt/recognition/fourstagerecogition/attention_hr_hierachicaldataset.py"
+config_file = "./configs/recoginition/attention/tps-attention_base.py"
 cfg = Config.fromfile(config_file)
 ##
 
@@ -22,30 +23,29 @@ def toPILImage(img_tensor:torch.Tensor)->Image:
     return image
 
 
-dataset = build_dataset(cfg.data.val)
+dataset = build_dataset(cfg.data.train)
 import torch
 b=torch.utils.data.DataLoader(
     dataset,
-    batch_size=256,
+    batch_size=1,
     num_workers=4,
     pin_memory=True,
-    shuffle=True,
+    shuffle=False,
         )
 
 
 def datasetitemn2show(index:int,data:dict):
     for key,value in data.items():
-        # if type(value[0]) != str:
-        #     print(key, value[0], value[0].shape)
-        # else:
-        #     print(key, value[0])
+        if type(value[0]) != str:
+            print(key, value[0], value[0].shape)
+        else:
+            print(key, value[0])
         if isinstance(value,np.ndarray) or isinstance(value,torch.Tensor):
             try:
                 img =toPILImage(value[0])
                 img.save('./testimgs/{}_{}.jpg'.format(key,index))
             except:
                 pass
-
 
 def numpydatasetitemn2show(index:int,data:dict):
     img_np = data['img'][0].cpu().numpy()
@@ -92,11 +92,16 @@ def show_img(imgs: np.ndarray, color=False):
 #     plt.show()
 #
 
-for i,data in enumerate(b):
-    print(i)
+# for i,data in enumerate(b):
+#     print(i)
 # data=b.__iter__().__next__()
+#
 # # datasetitemn2show(data)
-# datasetitemn2show(data)
+# datasetitemn2show(2,data)
+#
+from texthub.modules import build_detector,build_recognizer
+model = build_recognizer(
+            cfg.model, train_cfg=cfg.train_cfg, test_cfg=cfg.test_cfg)
 
 
 

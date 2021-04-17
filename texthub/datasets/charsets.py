@@ -13,10 +13,12 @@ def getChineseCharset():
 
 
 ChineseCharset = getChineseCharset()
-EnglishPrintableCharset = string.digits + string.ascii_letters + string.punctuation
+EnglishSensitiveCharset = string.digits + string.ascii_letters + string.punctuation
+EnglishNoSensitiveCharset = "0123456789abcdefghijklmnopqrstuvwxyz"
 CharsetDict = {
     "ChineseCharset":ChineseCharset,
-    "EnglishPrintableCharset":EnglishPrintableCharset
+    "EnglishSensitiveCharset":EnglishSensitiveCharset,
+    "EnglishNoSensitiveCharset":EnglishNoSensitiveCharset
 }
 
 

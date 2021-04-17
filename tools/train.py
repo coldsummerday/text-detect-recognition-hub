@@ -51,6 +51,24 @@ def main():
     args = parse_args()
 
     cfg = Config.fromfile(args.config)
+
+
+
+    ##pytorch 1.8 Pytorch 1.8 distributed mode will disable python logging module
+    """
+    解决方法：
+     Because during the execution of dist.init_process_group,
+      it will call _store_based_barrier, which finnaly will call logging.info (see the source code here). So if you call logging.basicConfig before you call dist.init_process_group
+    即logging.basicConfig(format=format_str, level=log_level) 调用在 torch.init_process_group之前
+    """
+
+    # create work_dir
+    os.makedirs(osp.abspath(cfg.work_dir), exist_ok=True)
+    # init the logger before other steps
+    timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
+    log_file = osp.join(cfg.work_dir, '{}.log'.format(timestamp))
+    logger = get_root_logger(log_file=log_file, log_level=cfg.log_level)
+
     # set cudnn_benchmark
     if cfg.get('cudnn_benchmark', True):
         torch.backends.cudnn.benchmark = True
@@ -68,12 +86,8 @@ def main():
         """
         init_dist("pytorch", **cfg.dist_params)
 
-    # create work_dir
-    os.makedirs(osp.abspath(cfg.work_dir), exist_ok=True)
-    # init the logger before other steps
-    timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-    log_file = osp.join(cfg.work_dir, '{}.log'.format(timestamp))
-    logger = get_root_logger(log_file=log_file, log_level=cfg.log_level)
+
+
 
     # init the meta dict to record some important information such as
     # environment info and seed, which will be logged
@@ -99,15 +113,24 @@ def main():
             cfg.model, train_cfg=cfg.train_cfg, test_cfg=cfg.test_cfg)
 
     dataset = build_dataset(cfg.data.train)
-    logger = get_root_logger(cfg.log_level)
 
+
+    import multiprocessing
+    multiprocessing.cpu_count()
+    use_cpu_workers = int(multiprocessing.cpu_count() / 4)
+    from texthub.datasets import HierarchicalLmdbDataset
+    if type(dataset) == HierarchicalLmdbDataset:
+        ##TODO:lmdb HierarchicalLmdbDataset 多进程下有问题
+        use_cpu_workers = 0
     if args.distributed:
+
         rank, world_size = get_dist_info()
         data_loader = torch.utils.data.DataLoader(
             dataset,
             batch_size=cfg.data.batch_size,
             pin_memory=True,
             drop_last=True,
+            num_workers=use_cpu_workers,
             sampler=DistributedSampler(dataset, num_replicas=world_size, rank=rank)
         )
         model = DistributedDataParallel(
@@ -122,6 +145,7 @@ def main():
             shuffle=True,
             pin_memory=True,
             drop_last=True,
+            num_workers=use_cpu_workers
         )
 
         if torch.cuda.is_available() and cfg.gpus != 0:

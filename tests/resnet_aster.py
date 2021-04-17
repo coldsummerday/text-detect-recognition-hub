@@ -133,3 +133,4 @@ import torch
 a = torch.ones((4,512,21,3))
 model = torch.nn.AdaptiveAvgPool2d((25,1))
 model(a)
+

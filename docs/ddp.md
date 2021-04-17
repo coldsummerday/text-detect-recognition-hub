@@ -9,7 +9,7 @@
 
 开启ddp 后出现的问题:
 
-TypeError: can't pickle Environment objects:
+TypeError: can't pickle Environment objects:(lmdb bug)
 
 (1)初始化时没有指定运行多进程运行方式:
 在代码中加入这条

@@ -7,7 +7,8 @@ from torch.nn.parallel import DataParallel,DistributedDataParallel
 import Polygon as plg
 from ....core.evaluation import eval_poly_detect,eval_text
 from ....utils.dist_utils import get_dist_info
-
+import multiprocessing
+from texthub.datasets import HierarchicalLmdbDataset
 
 class DetEvalHook(BaseHook):
     def __init__(self,dataset,
@@ -22,10 +23,18 @@ class DetEvalHook(BaseHook):
             raise TypeError(
                 'dataset must be a Dataset object or a dict, not {}'.format(
                     type(dataset)))
+
+        multiprocessing.cpu_count()
+        use_cpu_workers = int(multiprocessing.cpu_count() / 4)
+
+        if type(dataset) == HierarchicalLmdbDataset:
+            ##TODO:lmdb HierarchicalLmdbDataset 多进程下有问题
+            use_cpu_workers = 0
         self.data_loader = torch.utils.data.DataLoader(
             self.dataset,
             batch_size=batch_size,
-            drop_last=True
+            drop_last=True,
+            num_workers=use_cpu_workers
         )
         self.by_epoch = by_epoch
         self.interval = interval

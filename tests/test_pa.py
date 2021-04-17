@@ -8,7 +8,6 @@ sys.path.append(osp.join(this_path,'../'))
 from texthub.apis import init_detector,inference_detector
 from texthub.utils import set_random_seed
 import torch
-import matplotlib.pyplot as plt
 
 
 def draw_bbox(img_path, result, color=(0, 255, 0), thickness=2):

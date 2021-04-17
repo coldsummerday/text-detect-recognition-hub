@@ -52,5 +52,12 @@ pan后处理输出矩形框、多边形 segmentation fault问题已经解决
 c5 = F.interpolate(c5_ffm, c2_ffm.size()[-2:], mode='bilinear',align_corners=False)
 c4 = F.interpolate(c4_ffm, c2_ffm.size()[-2:], mode='bilinear',align_corners=False)
 c3 = F.interpolate(c3_ffm, c2_ffm.size()[-2:], mode='bilinear',align_corners=False)
+  
+
+  
+2021/04/06
+* add ConcateLmdbDataset,fix dataloader use dataset(lmdb) can't num_workers >0 bug
+
+
 
 

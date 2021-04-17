@@ -79,7 +79,7 @@ class AttentionHead(nn.Module):
 
         hidden = (torch.FloatTensor(batch_size, self.hidden_size).fill_(0).to(device),
                   torch.FloatTensor(batch_size, self.hidden_size).fill_(0).to(device))
-        ##TODO:此处target 可能有问题
+
         targets = torch.LongTensor(batch_size).fill_(0).to(device)  # [GO] token
         probs = torch.FloatTensor(batch_size, num_steps, self.num_classes).fill_(0).to(device)
 

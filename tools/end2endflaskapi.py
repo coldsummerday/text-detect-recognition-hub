@@ -34,7 +34,8 @@ det_config_file = os.path.join(BASEDIR,"../configs/detecttion/pan/pandetect.py")
 det_checkpoint = os.path.join(BASEDIR,"../work_dirs/pan/PAN_epoch_24.pth")
 
 
-rec_config_file = os.path.join(BASEDIR, "../configs/receipt/recognition/fourstagerecogition/tps_vgg_lstm_attention.py")
+rec_config_file = os.path.join(BASEDIR,
+                               "../configs/receipt/recognition/experiments/fourstagerecogition/tps_vgg_lstm_attention.py")
 rec_checkpoint = os.path.join(BASEDIR,"../work_dirs/tps_vgg_lstm_attention/FourStageModel_epoch_300.pth")
 
 

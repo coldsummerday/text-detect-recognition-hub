@@ -39,7 +39,6 @@ def model_inference(model,data_loader,get_pred_func:Callable,get_gt_func:Callabl
 
         gt = get_gt_func(data)
         gts.extend(gt)
-
     return results,gts
 
 def batch_dict_data_todevice(data:dict,device):
